@@ -1,0 +1,751 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AlphaFlow Ultimate | Professional Investment Terminal</title>
+    
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+
+    <style>
+        /* =========================================
+           🎨 ESTILO VISUAL (CSS)
+           ========================================= */
+        :root {
+            --bg: #050608;
+            --panel: rgba(18, 20, 26, 0.9);
+            --border: #2a303c;
+            --brand: #3b82f6;
+            --brand-glow: rgba(59, 130, 246, 0.4);
+            --up: #00dbb6;
+            --down: #ff3b69;
+            --text: #f3f4f6;
+            --muted: #9ca3af;
+            --glass: blur(12px);
+            --trans: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; scrollbar-width: thin; scrollbar-color: var(--border) var(--bg); }
+        body { background: var(--bg); color: var(--text); height: 100vh; overflow: hidden; font-size: 14px; }
+        
+        /* UTILITÁRIOS */
+        .mono { font-family: 'JetBrains Mono', monospace; }
+        .text-up { color: var(--up); } .text-down { color: var(--down); }
+        .text-brand { color: var(--brand); } .text-gold { color: #fbbf24; }
+        .flex { display: flex; } .col { flex-direction: column; } .center { align-items: center; justify-content: center; }
+        .hidden { display: none !important; }
+
+        /* FUNDO ANIMADO */
+        #bg-canvas { position: fixed; inset: 0; z-index: -1; pointer-events: none; }
+
+        /* ESTRUTURA PRINCIPAL */
+        #app { display: flex; height: 100%; opacity: 0; animation: fadeIn 1s forwards; }
+        @keyframes fadeIn { to { opacity: 1; } }
+
+        aside { width: 260px; background: var(--panel); border-right: 1px solid var(--border); padding: 20px; display: flex; flex-direction: column; backdrop-filter: var(--glass); z-index: 10; }
+        main { flex: 1; display: flex; flex-direction: column; overflow: hidden; position: relative; }
+
+        /* NAVEGAÇÃO */
+        .brand { font-size: 1.4rem; font-weight: 800; color: var(--brand); margin-bottom: 30px; display: flex; gap: 10px; align-items: center; text-shadow: 0 0 20px var(--brand-glow); }
+        .nav-item { padding: 12px; color: var(--muted); cursor: pointer; border-radius: 8px; margin-bottom: 5px; display: flex; align-items: center; gap: 12px; transition: 0.2s; }
+        .nav-item:hover, .nav-item.active { background: rgba(59,130,246,0.1); color: var(--brand); }
+        .nav-item.active { border-left: 3px solid var(--brand); }
+        .badge { background: var(--brand); color: white; padding: 2px 6px; font-size: 0.7rem; border-radius: 4px; margin-left: auto; }
+
+        /* HEADER */
+        header { height: 60px; border-bottom: 1px solid var(--border); background: var(--panel); display: flex; justify-content: space-between; align-items: center; padding: 0 25px; backdrop-filter: var(--glass); }
+        .status { font-size: 0.8rem; color: var(--up); font-family: 'JetBrains Mono'; letter-spacing: 1px; }
+        .user-box { display: flex; gap: 20px; align-items: center; }
+        .avatar { width: 35px; height: 35px; border: 1px solid var(--brand); border-radius: 50%; display: grid; place-items: center; font-weight: bold; font-size: 0.8rem; }
+
+        /* VIEWS (ABAS) */
+        .view { padding: 25px; height: 100%; overflow-y: auto; display: none; animation: slideUp 0.4s ease; }
+        .view.active { display: block; }
+        @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+        /* GRIDS & CARDS */
+        .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .card { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 20px; position: relative; backdrop-filter: blur(10px); }
+        .card:hover { border-color: rgba(255,255,255,0.1); }
+        .card.nopad { padding: 0; overflow: hidden; }
+
+        /* COMPONENTES DE UI */
+        .big-num { font-size: 1.8rem; font-weight: 700; margin: 10px 0; }
+        .sub-txt { font-size: 0.85rem; color: var(--muted); }
+        .tag { background: rgba(255,255,255,0.1); padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; }
+        
+        /* BOTÕES & INPUTS */
+        .btn { border: 1px solid var(--border); background: rgba(255,255,255,0.03); color: var(--text); padding: 8px 16px; border-radius: 6px; cursor: pointer; transition: 0.2s; font-weight: 500; }
+        .btn:hover { background: rgba(255,255,255,0.1); }
+        .btn-primary { background: var(--brand); border-color: var(--brand); color: white; }
+        .btn-buy { background: var(--up); color: #000; border: none; padding: 12px; border-radius: 6px; font-weight: bold; cursor: pointer; flex: 1; }
+        .btn-sell { background: var(--down); color: white; border: none; padding: 12px; border-radius: 6px; font-weight: bold; cursor: pointer; flex: 1; }
+        
+        input { background: #0f1116; border: 1px solid var(--border); color: white; padding: 10px; border-radius: 6px; width: 100%; outline: none; transition: 0.2s; }
+        input:focus { border-color: var(--brand); }
+        .input-error { border-color: var(--down) !important; animation: shake 0.3s; }
+        .error-msg { color: var(--down); font-size: 0.75rem; display: none; margin-top: 5px; }
+
+        /* TRADE PRO LAYOUT */
+        .trade-layout { display: grid; grid-template-columns: 3fr 1fr; gap: 20px; height: 100%; }
+        .chart-box { background: #000; border-radius: 8px; height: 500px; position: relative; padding: 10px; }
+        .tv-tools { position: absolute; top: 10px; left: 10px; display: flex; gap: 8px; z-index: 5; }
+        .tv-tools span { color: var(--muted); font-size: 0.75rem; cursor: pointer; padding: 2px 5px; }
+        .tv-tools span.active { color: white; background: var(--brand); border-radius: 4px; }
+        .qty-box { display: flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; margin-top: 5px; }
+        .qty-box button { width: 40px; background: rgba(255,255,255,0.05); border: none; color: white; cursor: pointer; }
+        .qty-box input { border: none; text-align: center; border-radius: 0; }
+
+        /* TABELAS */
+        table { width: 100%; border-collapse: collapse; }
+        th { text-align: left; padding: 12px; color: var(--muted); font-size: 0.75rem; border-bottom: 1px solid var(--border); }
+        td { padding: 12px; border-bottom: 1px solid var(--border); font-size: 0.9rem; font-family: 'JetBrains Mono'; }
+        tr:hover { background: rgba(255,255,255,0.03); cursor: pointer; }
+
+        /* NEWS GRID */
+        .news-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; margin-top: 20px; }
+        .news-card { cursor: pointer; transition: 0.3s; padding: 15px; border-radius: 12px; background: var(--panel); border: 1px solid var(--border); }
+        .news-card:hover { transform: translateY(-5px); border-color: var(--brand); }
+        .news-img { height: 140px; background: #222; border-radius: 8px; margin-bottom: 10px; background-size: cover; background-position: center; }
+
+        /* CHATBOT */
+        .chat-wrap { display: flex; flex-direction: column; height: 100%; border: 1px solid var(--border); border-radius: 12px; background: var(--panel); }
+        .chat-body { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 15px; }
+        .msg { max-width: 80%; padding: 12px 16px; border-radius: 12px; font-size: 0.95rem; line-height: 1.5; }
+        .bot { background: rgba(59,130,246,0.15); align-self: flex-start; border: 1px solid rgba(59,130,246,0.3); border-bottom-left-radius: 2px; }
+        .user { background: var(--brand); color: white; align-self: flex-end; border-bottom-right-radius: 2px; }
+        .chat-input { padding: 15px; border-top: 1px solid var(--border); display: flex; gap: 10px; }
+
+        /* MODAIS */
+        .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 100; display: flex; align-items: center; justify-content: center; opacity: 0; pointer-events: none; transition: 0.3s; backdrop-filter: blur(5px); }
+        .modal.open { opacity: 1; pointer-events: all; }
+        .modal-box { background: #111; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; max-height: 90vh; display: flex; flex-direction: column; width: 800px; }
+        .auth-box { width: 400px; padding: 30px; text-align: center; }
+        .m-content { padding: 30px; overflow-y: auto; }
+        .m-img { height: 300px; background: #333; border-radius: 8px; background-size: cover; margin: 20px 0; }
+        
+        @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
+        
+        @media (max-width: 1024px) {
+            #app { flex-direction: column; }
+            aside { width: 100%; height: 70px; flex-direction: row; overflow-x: auto; padding: 10px; align-items: center; }
+            .grid-4, .grid-2 { grid-template-columns: 1fr; }
+            .trade-layout { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+
+    <canvas id="bg-canvas"></canvas>
+
+    <div id="app">
+        <aside>
+            <div class="brand"><i class="fas fa-layer-group"></i> AlphaFlow</div>
+            <nav style="display:flex; flex-direction:column; width:100%;">
+                <div class="nav-item active" onclick="Router.go('dashboard')"><i class="fas fa-chart-pie"></i> Dashboard</div>
+                <div class="nav-item" onclick="Router.go('trade')"><i class="fas fa-chart-candlestick"></i> Trade Pro</div>
+                <div class="nav-item" onclick="Router.go('assets')"><i class="fas fa-globe"></i> Mercado Global</div>
+                <div class="nav-item" onclick="Router.go('news')"><i class="fas fa-newspaper"></i> AlphaNews <span class="badge">50+</span></div>
+                <div class="nav-item" onclick="Router.go('rankings')"><i class="fas fa-crown"></i> Top Investidores</div>
+                <div class="nav-item" onclick="Router.go('chatbot')"><i class="fas fa-robot"></i> AI Advisor</div>
+                <div class="nav-item" onclick="Router.go('account')"><i class="fas fa-id-card"></i> Minha Conta</div>
+                <div class="nav-item" onclick="Router.go('settings')"><i class="fas fa-cog"></i> Configurações</div>
+            </nav>
+        </aside>
+
+        <main>
+            <header>
+                <div class="status">● MERCADO ABERTO</div>
+                <div class="user-box">
+                    <div style="text-align:right;">
+                        <span style="font-size:0.7rem; color:var(--muted);">Disponível</span><br>
+                        <span class="mono font-bold" id="header-balance">---</span>
+                    </div>
+                    <div class="avatar">EU</div>
+                </div>
+            </header>
+
+            <section id="view-dashboard" class="view active">
+                <div class="grid-4">
+                    <div class="card">
+                        <h3>Patrimônio Total</h3>
+                        <div class="big-num mono" id="dash-total">---</div>
+                        <p class="sub-txt">Saldo + Investimentos</p>
+                    </div>
+                    <div class="card">
+                        <h3>Lucro / Prejuízo</h3>
+                        <div class="big-num mono" id="dash-pnl">---</div>
+                        <p class="sub-txt" id="dash-pnl-pct">0.00%</p>
+                    </div>
+                    <div class="card">
+                        <h3>Poder de Compra</h3>
+                        <div class="big-num mono text-brand" id="dash-cash">---</div>
+                    </div>
+                    <div class="card">
+                        <h3>Moeda Base</h3>
+                        <div class="big-num mono text-gold" id="dash-currency">USD</div>
+                    </div>
+                </div>
+
+                <div class="grid-2" style="margin-top:20px;">
+                    <div class="card">
+                        <h3>Alocação de Ativos</h3>
+                        <div style="height: 300px; position: relative; display: flex; justify-content: center; align-items: center;">
+                            <canvas id="chart-allocation"></canvas>
+                            <div id="empty-state" style="position: absolute; text-align: center; color: var(--muted);">
+                                <i class="fas fa-wallet" style="font-size: 2rem; margin-bottom: 10px;"></i>
+                                <p>Faça seu primeiro investimento.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <h3>Performance da Carteira</h3>
+                        <div style="height: 300px;"><canvas id="chart-history"></canvas></div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="view-trade" class="view">
+                <div class="trade-layout">
+                    <div class="card" style="display:flex; flex-direction:column;">
+                        <div style="display:flex; justify-content:space-between; margin-bottom:15px;">
+                            <div>
+                                <h2 id="trade-symbol">BTC</h2>
+                                <span class="tag" id="trade-name">Bitcoin</span>
+                            </div>
+                            <div style="text-align:right;">
+                                <div class="big-num mono" style="margin:0;" id="trade-price">---</div>
+                                <div class="mono" id="trade-change">---</div>
+                            </div>
+                        </div>
+                        <div class="chart-box">
+                            <div class="tv-tools">
+                                <span>1D</span><span>1W</span><span>1M</span>
+                                <span style="color:#555">|</span>
+                                <span class="active">Candles</span><span>Line</span>
+                                <span style="color:#555">|</span>
+                                <span>RSI</span><span>MACD</span>
+                            </div>
+                            <canvas id="chart-candle"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="card" style="display:flex; flex-direction:column; gap:20px;">
+                        <h3>Painel de Ordem</h3>
+                        <div style="display:flex; justify-content:space-between;">
+                            <span>Disponível:</span> <span class="mono" id="trade-balance">---</span>
+                        </div>
+
+                        <div>
+                            <label style="font-size:0.8rem; color:var(--muted);">Quantidade</label>
+                            <div class="qty-box">
+                                <button onclick="Trade.adj(-1)">-</button>
+                                <input type="number" id="trade-qty" value="1">
+                                <button onclick="Trade.adj(1)">+</button>
+                            </div>
+                        </div>
+
+                        <div style="background:rgba(255,255,255,0.03); padding:15px; border-radius:8px;">
+                            <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
+                                <span>Total:</span> <span class="mono" id="trade-total">---</span>
+                            </div>
+                            <div style="display:flex; justify-content:space-between; color:var(--muted); font-size:0.8rem;">
+                                <span>Taxa (0.1%):</span> <span class="mono" id="trade-fee">---</span>
+                            </div>
+                        </div>
+
+                        <div style="display:flex; gap:10px; margin-top:auto;">
+                            <button class="btn-buy" onclick="Trade.exec('buy')">COMPRAR</button>
+                            <button class="btn-sell" onclick="Trade.exec('sell')">VENDER</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="view-assets" class="view">
+                <div style="display:flex; justify-content:space-between; margin-bottom:20px;">
+                    <h2>Mercado Global</h2>
+                    <input type="text" placeholder="Buscar ativo..." style="width:250px;" onkeyup="Assets.filter(this.value)">
+                </div>
+                <div class="card nopad">
+                    <table class="data-table">
+                        <thead><tr><th>ATIVO</th><th>NOME</th><th>TIPO</th><th>PREÇO</th><th>VAR %</th><th>AÇÃO</th></tr></thead>
+                        <tbody id="table-assets"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section id="view-news" class="view">
+                <div style="display:flex; justify-content:space-between; margin-bottom:20px;">
+                    <h2>AlphaNews Feed</h2>
+                    <div style="display:flex; gap:10px;">
+                        <button class="btn btn-primary" onclick="News.filter('all')">Todos</button>
+                        <button class="btn" onclick="News.filter('Cripto')">Cripto</button>
+                        <button class="btn" onclick="News.filter('Ações')">Ações</button>
+                        <button class="btn" onclick="News.filter('Macro')">Macro</button>
+                    </div>
+                </div>
+                <div class="news-grid" id="news-container"></div>
+            </section>
+
+            <section id="view-rankings" class="view">
+                <h2>Hall of Fame: Top Investidores</h2>
+                <div class="card nopad" style="margin-top:20px;">
+                    <div id="rank-container"></div>
+                </div>
+            </section>
+
+            <section id="view-chatbot" class="view">
+                <div class="chat-wrap">
+                    <div style="padding:15px; border-bottom:1px solid var(--border); font-weight:bold; display:flex; gap:10px;">
+                        <i class="fas fa-brain text-brand"></i> AlphaNeural Core 3.0
+                    </div>
+                    <div class="chat-body" id="chat-history">
+                        <div class="msg bot">Olá. Sou sua IA financeira de nível institucional. Posso analisar ativos, explicar conceitos ou resumir o mercado.</div>
+                    </div>
+                    <div class="chat-input">
+                        <input type="text" id="chat-input" placeholder="Ex: Analise a tendência do Ouro..." onkeypress="if(event.key==='Enter') Chat.send()">
+                        <button class="btn btn-primary" onclick="Chat.send()"><i class="fas fa-paper-plane"></i></button>
+                    </div>
+                </div>
+            </section>
+
+            <section id="view-account" class="view">
+                <div class="card" style="max-width:500px; margin:0 auto;">
+                    <h2>Dados da Conta</h2>
+                    <p style="color:var(--muted); margin-bottom:20px;">Mantenha seus dados atualizados.</p>
+
+                    <div style="margin-bottom:15px;">
+                        <label style="font-size:0.8rem; color:var(--muted);">Nome Completo</label>
+                        <input type="text" oninput="Validation.name(this)" placeholder="Seu nome">
+                        <div class="error-msg">Apenas letras permitidas.</div>
+                    </div>
+                    <div style="margin-bottom:15px;">
+                        <label style="font-size:0.8rem; color:var(--muted);">CPF</label>
+                        <input type="text" oninput="Validation.cpf(this)" placeholder="000.000.000-00" maxlength="14">
+                        <div class="error-msg">Formato inválido.</div>
+                    </div>
+                    <div style="margin-bottom:15px;">
+                        <label style="font-size:0.8rem; color:var(--muted);">Email</label>
+                        <input type="email" placeholder="email@exemplo.com">
+                    </div>
+                    <div style="margin-bottom:15px;">
+                        <label style="font-size:0.8rem; color:var(--muted);">Senha</label>
+                        <input type="password" placeholder="••••••••">
+                    </div>
+
+                    <button class="btn btn-primary" style="width:100%; margin-top:10px;" onclick="Validation.submit()">SALVAR ALTERAÇÕES</button>
+                </div>
+            </section>
+
+            <section id="view-settings" class="view">
+                <div class="card" style="max-width:500px;">
+                    <h2>Configurações do Sistema</h2>
+                    <div style="margin-top:20px;">
+                        <label style="font-size:0.8rem; color:var(--muted);">Moeda Base</label>
+                        <div style="display:flex; gap:10px; margin-top:10px;">
+                            <button class="btn" onclick="Currency.set('USD')">USD ($)</button>
+                            <button class="btn" onclick="Currency.set('BRL')">BRL (R$)</button>
+                            <button class="btn" onclick="Currency.set('EUR')">EUR (€)</button>
+                        </div>
+                        <p style="color:var(--muted); font-size:0.8rem; margin-top:10px;">A alteração recalcula todo o sistema instantaneamente.</p>
+                    </div>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <div id="modal-news" class="modal">
+        <div class="modal-box" style="width:800px;">
+            <div style="padding:20px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between;">
+                <span class="tag" id="m-news-cat">CATEGORIA</span>
+                <button class="btn" onclick="document.getElementById('modal-news').classList.remove('open')">✕</button>
+            </div>
+            <div class="m-content">
+                <h1 id="m-news-title" style="margin-bottom:20px;"></h1>
+                <div class="m-img" id="m-news-img"></div>
+                <p id="m-news-body" style="color:var(--muted); line-height:1.6;"></p>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-auth" class="modal">
+        <div class="modal-box auth-box">
+            <i class="fas fa-lock" style="font-size:3rem; color:var(--down); margin-bottom:20px;"></i>
+            <h2>Ação Restrita</h2>
+            <p style="color:var(--muted); margin-bottom:20px;">Para alterar dados sensíveis, acesse sua conta.</p>
+            <div style="display:flex; flex-direction:column; gap:10px;">
+                <button class="btn btn-primary" onclick="alert('Redirecionando para Login...')">ENTRAR NA CONTA</button>
+                <button class="btn" onclick="alert('Redirecionando para Cadastro...')">CRIAR CONTA</button>
+            </div>
+            <button class="btn" style="border:none; margin-top:15px; text-decoration:underline;" onclick="document.getElementById('modal-auth').classList.remove('open')">Cancelar</button>
+        </div>
+    </div>
+
+    <script>
+        /* =========================================
+           🧠 LÓGICA DO SISTEMA (JAVASCRIPT)
+           ========================================= */
+
+        // 1. DADOS E ESTADO
+        const Store = {
+            currency: 'USD',
+            rates: { USD: 1, BRL: 5.25, EUR: 0.92 },
+            balance: 10000.00,
+            portfolio: {}, 
+            invested: 0,
+            history: [10000]
+        };
+
+        const DB = {
+            investors: [
+                {n:"Warren Buffett", s:"Value", f:"Berkshire"}, {n:"Ray Dalio", s:"Macro", f:"Bridgewater"}, 
+                {n:"George Soros", s:"Reflexivity", f:"Soros Fund"}, {n:"Jim Simons", s:"Quant", f:"Renaissance"},
+                {n:"Cathie Wood", s:"Tech", f:"ARK"}, {n:"Peter Lynch", s:"Growth", f:"Fidelity"},
+                {n:"Elon Musk", s:"Visionary", f:"Tesla"}, {n:"Satoshi Nakamoto", s:"Crypto", f:"Bitcoin"},
+                {n:"Ken Griffin", s:"Maker", f:"Citadel"}, {n:"Larry Fink", s:"Inst.", f:"BlackRock"},
+                {n:"Jeff Bezos", s:"Ind.", f:"Amazon"}, {n:"Mark Cuban", s:"Shark", f:"Mavericks"},
+                {n:"Michael Burry", s:"Short", f:"Scion"}, {n:"Bill Ackman", s:"Activist", f:"Pershing"},
+                {n:"Você", s:"Iniciante", f:"AlphaFlow"}
+            ],
+            assets: [
+                {s:"BTC", n:"Bitcoin", p:65000, t:"Cripto"}, {s:"ETH", n:"Ethereum", p:3500, t:"Cripto"},
+                {s:"SOL", n:"Solana", p:150, t:"Cripto"}, {s:"AAPL", n:"Apple", p:175, t:"Ações"},
+                {s:"NVDA", n:"Nvidia", p:900, t:"Ações"}, {s:"MSFT", n:"Microsoft", p:420, t:"Ações"},
+                {s:"TSLA", n:"Tesla", p:170, t:"Ações"}, {s:"GOOGL", n:"Google", p:170, t:"Ações"},
+                {s:"GOLD", n:"Ouro", p:2350, t:"Macro"}, {s:"OIL", n:"Petróleo", p:85, t:"Macro"},
+                {s:"SPY", n:"S&P 500", p:520, t:"ETF"}, {s:"QQQ", n:"Nasdaq", p:440, t:"ETF"}
+            ],
+            news: []
+        };
+
+        // Gerar 50 notícias
+        const titles = ["Alta no mercado", "Crise de Chips", "Fed mantém taxas", "Bitcoin explode", "Novo IPO", "Petróleo sobe", "Guerra comercial", "Balanço Tech"];
+        const cats = ["Cripto", "Ações", "Macro", "Tech"];
+        for(let i=0; i<50; i++) {
+            DB.news.push({
+                id: i,
+                title: `${titles[i%8]} impacta investidores na região ${['EUA','Ásia','Europa'][i%3]}`,
+                cat: cats[i%4],
+                body: "Lorem ipsum dolor sit amet. O mercado reage com forte volatilidade às novas diretrizes econômicas. Analistas sugerem cautela.",
+                img: `https://picsum.photos/seed/${i+55}/600/300`
+            });
+        }
+
+        // 2. LÓGICA DE NEGÓCIO
+        const Logic = {
+            fmt: (val) => {
+                const rate = Store.rates[Store.currency];
+                const sym = {USD:'$', BRL:'R$', EUR:'€'}[Store.currency];
+                return `${sym} ${(val * rate).toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})}`;
+            },
+            updateDash: () => {
+                const investedVal = Object.values(Store.portfolio).reduce((acc, i) => acc + (i.qty * i.price), 0);
+                Store.invested = investedVal;
+                const total = Store.balance + investedVal;
+                const pnl = total - 10000;
+                
+                document.getElementById('header-balance').innerText = Logic.fmt(Store.balance);
+                document.getElementById('dash-total').innerText = Logic.fmt(total);
+                document.getElementById('dash-cash').innerText = Logic.fmt(Store.balance);
+                document.getElementById('dash-currency').innerText = Store.currency;
+                
+                const pnlEl = document.getElementById('dash-pnl');
+                pnlEl.innerText = Logic.fmt(pnl);
+                pnlEl.className = `big-num mono ${pnl >= 0 ? 'text-up' : 'text-down'}`;
+                document.getElementById('dash-pnl-pct').innerText = ((pnl/10000)*100).toFixed(2) + '%';
+
+                if(ChartEngine.alloc) {
+                    if(investedVal === 0) {
+                        document.getElementById('empty-state').style.display = 'block';
+                        document.getElementById('chart-allocation').style.display = 'none';
+                    } else {
+                        document.getElementById('empty-state').style.display = 'none';
+                        document.getElementById('chart-allocation').style.display = 'block';
+                        ChartEngine.alloc.data.labels = Object.keys(Store.portfolio);
+                        ChartEngine.alloc.data.datasets[0].data = Object.values(Store.portfolio).map(i => i.qty * i.price);
+                        ChartEngine.alloc.update();
+                    }
+                }
+            }
+        };
+
+        // 3. GRÁFICOS (Chart.js)
+        const ChartEngine = {
+            candle: null, alloc: null, history: null,
+            init: () => {
+                const ctx1 = document.getElementById('chart-candle').getContext('2d');
+                ChartEngine.candle = new Chart(ctx1, {
+                    type: 'line',
+                    data: {
+                        labels: Array(30).fill(''),
+                        datasets: [{
+                            data: Array.from({length:30}, ()=>Math.random()*100+60000),
+                            borderColor: '#3b82f6', borderWidth: 2, pointRadius: 0,
+                            fill: { target: 'origin', above: 'rgba(59,130,246,0.1)' }
+                        }]
+                    },
+                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: {display:false} }, scales: { x:{display:false}, y:{grid:{color:'#2a303c'}} }, animation: { duration: 0 } }
+                });
+
+                const ctx2 = document.getElementById('chart-allocation').getContext('2d');
+                ChartEngine.alloc = new Chart(ctx2, {
+                    type: 'doughnut',
+                    data: { labels: [], datasets: [{ data: [], backgroundColor: ['#3b82f6','#00dbb6','#ff3b69','#fbbf24'] }] },
+                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: {position:'right'} } }
+                });
+
+                const ctx3 = document.getElementById('chart-history').getContext('2d');
+                ChartEngine.history = new Chart(ctx3, {
+                    type: 'line',
+                    data: { labels: ['Início'], datasets: [{ data: [10000], borderColor: '#00dbb6', tension: 0.4 }] },
+                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: {display:false} }, scales: {x:{display:false}, y:{display:false}} }
+                });
+            }
+        };
+
+        // 4. TRADE SYSTEM
+        const Trade = {
+            active: DB.assets[0],
+            init: () => {
+                Trade.load(DB.assets[0]);
+                setInterval(() => {
+                    DB.assets.forEach(a => a.p += (Math.random()-0.5)*(a.p*0.005));
+                    if(document.getElementById('view-trade').classList.contains('active')) Trade.updateUI();
+                    Logic.updateDash();
+                }, 1500);
+            },
+            load: (asset) => {
+                Trade.active = asset;
+                document.getElementById('trade-symbol').innerText = asset.s;
+                document.getElementById('trade-name').innerText = asset.n;
+                ChartEngine.candle.data.datasets[0].data = Array.from({length:30}, ()=> asset.p + (Math.random()-0.5)*asset.p*0.05);
+                Trade.updateUI();
+            },
+            updateUI: () => {
+                const p = Trade.active.p;
+                document.getElementById('trade-price').innerText = Logic.fmt(p);
+                const chg = (Math.random()*4-2).toFixed(2);
+                const chgEl = document.getElementById('trade-change');
+                chgEl.innerText = chg + '%';
+                chgEl.className = `mono ${chg>=0?'text-up':'text-down'}`;
+                
+                document.getElementById('trade-balance').innerText = Logic.fmt(Store.balance);
+                const qty = parseFloat(document.getElementById('trade-qty').value);
+                const total = qty * p;
+                document.getElementById('trade-total').innerText = Logic.fmt(total);
+                document.getElementById('trade-fee').innerText = Logic.fmt(total * 0.001);
+                
+                const d = ChartEngine.candle.data.datasets[0].data;
+                d.shift(); d.push(p);
+                ChartEngine.candle.update();
+            },
+            adj: (n) => {
+                const el = document.getElementById('trade-qty');
+                let v = parseFloat(el.value) + n;
+                if(v < 0.1) v = 0.1;
+                el.value = v;
+                Trade.updateUI();
+            },
+            exec: (type) => {
+                const qty = parseFloat(document.getElementById('trade-qty').value);
+                const price = Trade.active.p;
+                const total = qty * price;
+                
+                if(type === 'buy') {
+                    if(Store.balance >= total) {
+                        Store.balance -= total;
+                        if(!Store.portfolio[Trade.active.s]) Store.portfolio[Trade.active.s] = {qty:0, price:price, symbol:Trade.active.s};
+                        Store.portfolio[Trade.active.s].qty += qty;
+                        alert("Ordem de Compra Executada!");
+                    } else alert("Saldo Insuficiente");
+                } else {
+                    if(Store.portfolio[Trade.active.s] && Store.portfolio[Trade.active.s].qty >= qty) {
+                        Store.balance += total;
+                        Store.portfolio[Trade.active.s].qty -= qty;
+                        if(Store.portfolio[Trade.active.s].qty <= 0) delete Store.portfolio[Trade.active.s];
+                        alert("Ordem de Venda Executada!");
+                    } else alert("Ativos Insuficientes");
+                }
+                Logic.updateDash();
+                Trade.updateUI();
+            }
+        };
+
+        // 5. CHATBOT AI
+        const Chat = {
+            context: null,
+            send: () => {
+                const inp = document.getElementById('chat-input');
+                const txt = inp.value;
+                if(!txt) return;
+                
+                const hist = document.getElementById('chat-history');
+                hist.innerHTML += `<div class="msg user">${txt}</div>`;
+                inp.value = '';
+                hist.scrollTop = hist.scrollHeight;
+
+                setTimeout(() => {
+                    let reply = "Não entendi o contexto.";
+                    const low = txt.toLowerCase();
+                    const asset = DB.assets.find(a => low.includes(a.n.toLowerCase()) || low.includes(a.s.toLowerCase()));
+                    if(asset) Chat.context = asset;
+                    
+                    if(low.includes('ola') || low.includes('oi')) reply = "Olá! Como posso ajudar nos seus investimentos?";
+                    else if(low.includes('preço') && Chat.context) reply = `O ${Chat.context.n} está cotado a ${Logic.fmt(Chat.context.p)}.`;
+                    else if(low.includes('analise')) {
+                        if(Chat.context) {
+                            const rsi = Math.floor(Math.random()*100);
+                            reply = `Análise de ${Chat.context.n}: RSI em ${rsi}. Tendência de ${(Math.random()>0.5?'ALTA':'BAIXA')} no curto prazo.`;
+                        } else reply = "De qual ativo você quer análise?";
+                    } else if(asset) {
+                        reply = `Identifiquei ${asset.n} (${asset.s}). Setor: ${asset.t}. Preço: ${Logic.fmt(asset.p)}. Quer uma análise?`;
+                    }
+                    
+                    hist.innerHTML += `<div class="msg bot">${reply}</div>`;
+                    hist.scrollTop = hist.scrollHeight;
+                }, 800);
+            }
+        };
+
+        // 6. MÓDULOS DE UI (News, Assets, Validation)
+        const News = {
+            render: (l) => {
+                document.getElementById('news-container').innerHTML = l.map(n => `
+                    <div class="news-card" onclick="News.open(${n.id})">
+                        <div class="news-img" style="background-image:url('${n.img}')"></div>
+                        <span class="tag">${n.cat}</span>
+                        <h4 style="margin-top:10px;">${n.title}</h4>
+                    </div>
+                `).join('');
+            },
+            filter: (cat) => {
+                const l = cat === 'all' ? DB.news : DB.news.filter(n => n.cat === cat);
+                News.render(l);
+            },
+            open: (id) => {
+                const n = DB.news.find(x => x.id === id);
+                document.getElementById('m-news-title').innerText = n.title;
+                document.getElementById('m-news-cat').innerText = n.cat;
+                document.getElementById('m-news-img').style.backgroundImage = `url('${n.img}')`;
+                document.getElementById('m-news-body').innerText = n.body.repeat(5);
+                document.getElementById('modal-news').classList.add('open');
+            }
+        };
+
+        const Assets = {
+            render: (l) => {
+                document.getElementById('table-assets').innerHTML = l.map(a => `
+                    <tr onclick="Trade.load(DB.assets.find(x=>x.s=='${a.s}')); Router.go('trade')">
+                        <td style="font-weight:bold">${a.s}</td>
+                        <td>${a.n}</td>
+                        <td><span class="tag">${a.t}</span></td>
+                        <td class="mono">${Logic.fmt(a.p)}</td>
+                        <td class="mono ${(Math.random()>0.5?'text-up':'text-down')}">${(Math.random()*6-3).toFixed(2)}%</td>
+                        <td><button class="btn" style="padding:4px 8px; font-size:0.7rem;">TRADE</button></td>
+                    </tr>
+                `).join('');
+            },
+            filter: (v) => {
+                const l = DB.assets.filter(a => a.n.toLowerCase().includes(v.toLowerCase()) || a.s.toLowerCase().includes(v.toLowerCase()));
+                Assets.render(l);
+            }
+        };
+
+        const Validation = {
+            name: (el) => {
+                if(/[^a-zA-Z\s]/.test(el.value)) {
+                    el.value = el.value.replace(/[^a-zA-Z\s]/g,'');
+                    el.classList.add('input-error');
+                    el.nextElementSibling.style.display = 'block';
+                } else {
+                    el.classList.remove('input-error');
+                    el.nextElementSibling.style.display = 'none';
+                }
+            },
+            cpf: (el) => {
+                el.value = el.value.replace(/\D/g,'').replace(/(\d{3})(\d)/,'$1.$2').replace(/(\d{3})(\d)/,'$1.$2').replace(/(\d{3})(\d{1,2})$/,'$1-$2');
+                if(el.value.length < 14) {
+                    el.classList.add('input-error');
+                    el.nextElementSibling.style.display = 'block';
+                } else {
+                    el.classList.remove('input-error');
+                    el.nextElementSibling.style.display = 'none';
+                }
+            },
+            submit: () => document.getElementById('modal-auth').classList.add('open')
+        };
+
+        const Router = {
+            go: (id) => {
+                document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+                document.getElementById('view-'+id).classList.add('active');
+                document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+                event.currentTarget.classList.add('active');
+                if(id === 'dashboard') Logic.updateDash();
+            }
+        };
+
+        const Currency = {
+            set: (c) => {
+                Store.currency = c;
+                Logic.updateDash();
+                Assets.render(DB.assets);
+                Trade.updateUI();
+            }
+        };
+
+        // 7. CANVAS ANIMATION
+        const Canvas = {
+            init: () => {
+                const c = document.getElementById('bg-canvas');
+                const ctx = c.getContext('2d');
+                let w, h, p = [];
+                const resize = () => { w=c.width=window.innerWidth; h=c.height=window.innerHeight; };
+                window.addEventListener('resize', resize); resize();
+                
+                for(let i=0; i<40; i++) p.push({x:Math.random()*w, y:Math.random()*h, r:Math.random()*2, dx:(Math.random()-0.5)*0.3, dy:(Math.random()-0.5)*0.3});
+                
+                const anim = () => {
+                    ctx.clearRect(0,0,w,h);
+                    ctx.fillStyle = 'rgba(255,255,255,0.05)';
+                    p.forEach(pt => {
+                        pt.x += pt.dx; pt.y += pt.dy;
+                        if(pt.x<0||pt.x>w) pt.dx*=-1; if(pt.y<0||pt.y>h) pt.dy*=-1;
+                        ctx.beginPath(); ctx.arc(pt.x, pt.y, pt.r, 0, Math.PI*2); ctx.fill();
+                    });
+                    requestAnimationFrame(anim);
+                };
+                anim();
+            }
+        };
+
+        // 8. INICIALIZAÇÃO
+        window.onload = () => {
+            ChartEngine.init();
+            Assets.render(DB.assets);
+            News.render(DB.news);
+            Trade.init();
+            Canvas.init();
+            Logic.updateDash();
+            
+            // Render Ranking
+            document.getElementById('rank-container').innerHTML = DB.investors.map((i,x) => `
+                <div style="display:flex; align-items:center; padding:10px; border-bottom:1px solid #2a303c;">
+                    <div class="mono text-brand" style="width:30px; font-weight:bold;">#${x+1}</div>
+                    <div style="width:40px; height:40px; background:#222; border-radius:50%; display:grid; place-items:center; font-weight:bold; margin-right:15px; border:1px solid #333;">${i.n[0]}</div>
+                    <div style="flex:1;">
+                        <div style="font-weight:bold;">${i.n}</div>
+                        <div style="font-size:0.8rem; color:#9ca3af;">${i.f}</div>
+                    </div>
+                    <div class="tag">${i.s}</div>
+                </div>
+            `).join('');
+        };
+    </script>
+</body>
+</html>
