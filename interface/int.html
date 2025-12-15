@@ -3,853 +3,278 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AlphaFlow Ultimate | Terminal Financeiro Premium</title>
-    
+    <title>AlphaFlow Ultimate v8.0+ | Enhanced Trading Platform</title>
     <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
-
-    <style>
-        /* =========================================
-           🎨 SYSTEM DESIGN: DEEP LUXURY FINTECH
-           ========================================= */
-        :root {
-            --bg-deep: #010205;
-            --bg-panel: rgba(12, 16, 24, 0.95);
-            --bg-hover: rgba(255, 255, 255, 0.08);
-            --border: rgba(50, 60, 80, 0.5);
-            
-            --brand-primary: #00f2ff; /* Ciano Neon */
-            --brand-secondary: #0051ff; /* Azul Profundo */
-            --brand-glow: rgba(0, 242, 255, 0.25);
-            
-            --up: #00e396;
-            --down: #ff0055;
-            --gold: #ffd700;
-            
-            --text-main: #ffffff;
-            --text-muted: #8a9ab8;
-            
-            --glass: blur(12px);
-            --shadow-premium: 0 10px 40px -10px rgba(0,0,0,0.6);
-        }
-
-        /* RESET & BASE */
-        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; scrollbar-width: thin; scrollbar-color: var(--brand-primary) var(--bg-deep); }
-        body { background: var(--bg-deep); color: var(--text-main); height: 100vh; overflow: hidden; font-size: 14px; }
-        
-        /* TIPOGRAFIA & UTILITÁRIOS */
-        .mono { font-family: 'JetBrains Mono', monospace; }
-        .text-up { color: var(--up); } .text-down { color: var(--down); } .text-brand { color: var(--brand-primary); } .text-gold { color: var(--gold); }
-        .flex { display: flex; } .col { flex-direction: column; } .center { align-items: center; justify-content: center; } .between { justify-content: space-between; }
-        .gap-10 { gap: 10px; } .gap-20 { gap: 20px; } .hidden { display: none !important; }
-
-        /* LAYOUT PRINCIPAL */
-        #app { display: flex; height: 100%; width: 100%; opacity: 1; overflow: hidden; }
-        
-        /* SIDEBAR (Navegação) */
-        aside { width: 280px; background: var(--bg-panel); border-right: 1px solid var(--border); padding: 25px; display: flex; flex-direction: column; z-index: 20; backdrop-filter: var(--glass); }
-        
-        .brand-logo { display: flex; align-items: center; gap: 15px; margin-bottom: 40px; }
-        .logo-icon { width: 42px; height: 42px; background: linear-gradient(135deg, var(--brand-primary), var(--brand-secondary)); border-radius: 12px; display: grid; place-items: center; font-size: 1.6rem; color: #000; box-shadow: 0 0 25px var(--brand-glow); }
-        .brand-text { font-size: 1.5rem; font-weight: 800; background: linear-gradient(to right, #fff, var(--brand-primary)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; letter-spacing: -0.5px; }
-
-        .nav-item { padding: 14px 18px; color: var(--text-muted); cursor: pointer; border-radius: 12px; margin-bottom: 8px; display: flex; align-items: center; gap: 15px; transition: 0.2s; font-weight: 600; border: 1px solid transparent; }
-        .nav-item:hover { background: var(--bg-hover); color: #fff; transform: translateX(5px); border-color: rgba(255,255,255,0.1); }
-        .nav-item.active { background: linear-gradient(90deg, rgba(0, 242, 255, 0.1), transparent); color: var(--brand-primary); border-left: 3px solid var(--brand-primary); }
-        .nav-item i { width: 24px; text-align: center; }
-        .badge { background: var(--brand-primary); color: #000; padding: 2px 8px; font-size: 0.7rem; border-radius: 10px; margin-left: auto; font-weight: 800; }
-
-        /* ÁREA PRINCIPAL */
-        main { flex: 1; display: flex; flex-direction: column; overflow: hidden; position: relative; z-index: 10; }
-
-        /* HEADER */
-        header { height: 70px; border-bottom: 1px solid var(--border); background: var(--bg-panel); display: flex; justify-content: space-between; align-items: center; padding: 0 30px; backdrop-filter: var(--glass); }
-        .market-status { display: flex; align-items: center; gap: 8px; font-size: 0.8rem; font-weight: 700; letter-spacing: 1px; color: var(--up); }
-        .status-dot { width: 8px; height: 8px; background: var(--up); border-radius: 50%; box-shadow: 0 0 10px var(--up); animation: pulse 2s infinite; }
-        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(0,227,150,0.7); } 70% { box-shadow: 0 0 0 10px rgba(0,227,150,0); } 100% { box-shadow: 0 0 0 0 rgba(0,227,150,0); } }
-        
-        .user-panel { display: flex; align-items: center; gap: 20px; }
-        .balance-pill { background: rgba(0,0,0,0.4); padding: 8px 20px; border-radius: 30px; border: 1px solid var(--border); display: flex; align-items: center; gap: 12px; }
-        .user-avatar { width: 40px; height: 40px; border-radius: 50%; border: 2px solid var(--border); background: #222; display: grid; place-items: center; font-weight: bold; color: var(--brand-primary); }
-
-        /* SISTEMA DE VIEWS (ABAS) */
-        .view { padding: 30px; height: 100%; overflow-y: auto; display: none; }
-        .view.active { display: block; animation: fadeIn 0.4s ease-out; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-
-        /* COMPONENTES DE UI */
-        .section-title { font-size: 1.4rem; font-weight: 700; margin-bottom: 25px; display: flex; align-items: center; gap: 10px; color: #fff; }
-        
-        .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 25px; }
-        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 25px; }
-        
-        .card { background: var(--bg-panel); border: 1px solid var(--border); border-radius: 16px; padding: 25px; position: relative; transition: 0.3s; box-shadow: var(--shadow-premium); }
-        .card:hover { border-color: var(--brand-glow); transform: translateY(-2px); }
-        .card.nopad { padding: 0; overflow: hidden; }
-
-        .big-num { font-size: 2.2rem; font-weight: 800; margin: 10px 0; letter-spacing: -1px; }
-        .sub-txt { font-size: 0.85rem; color: var(--text-muted); font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; }
-
-        /* BOTÕES & INPUTS */
-        .btn { border: 1px solid var(--border); background: rgba(255,255,255,0.05); color: var(--text-main); padding: 12px 24px; border-radius: 8px; cursor: pointer; transition: 0.2s; font-weight: 700; display: inline-flex; align-items: center; gap: 10px; font-size: 0.9rem; }
-        .btn:hover { background: var(--bg-hover); border-color: var(--text-muted); transform: translateY(-1px); }
-        .btn-primary { background: linear-gradient(135deg, var(--brand-secondary), var(--brand-primary)); border: none; color: #000; box-shadow: 0 5px 20px rgba(0, 242, 255, 0.2); }
-        .btn-primary:hover { box-shadow: 0 10px 30px rgba(0, 242, 255, 0.4); }
-        .btn-buy { background: linear-gradient(135deg, #00b09b, #96c93d); color: #fff; border: none; width: 100%; border-radius: 10px; padding: 15px; font-weight: 800; }
-        .btn-sell { background: linear-gradient(135deg, #ff5f6d, #ffc371); color: #fff; border: none; width: 100%; border-radius: 10px; padding: 15px; font-weight: 800; }
-
-        input, select { background: rgba(0,0,0,0.4); border: 1px solid var(--border); color: white; padding: 14px; border-radius: 10px; width: 100%; outline: none; transition: 0.3s; font-size: 1rem; }
-        input:focus, select:focus { border-color: var(--brand-primary); box-shadow: 0 0 15px var(--brand-glow); }
-
-        /* TRADE PRO (TradingView Style) */
-        .trade-layout { display: grid; grid-template-columns: 3fr 1fr; gap: 25px; height: 100%; }
-        .chart-toolbar { display: flex; gap: 5px; padding: 10px 15px; border-bottom: 1px solid var(--border); background: rgba(0,0,0,0.2); align-items: center; }
-        .tool-btn { padding: 6px 12px; font-size: 0.8rem; cursor: pointer; color: var(--text-muted); border-radius: 4px; font-weight: 600; transition: 0.2s; }
-        .tool-btn:hover, .tool-btn.active { background: var(--brand-primary); color: #000; }
-        .asset-selector { background: transparent; border: none; color: white; font-size: 1.2rem; font-weight: 800; cursor: pointer; padding-right: 20px; appearance: none; }
-        .asset-selector option { background: #000; color: white; }
-
-        /* TABELAS & LISTAS */
-        table { width: 100%; border-collapse: collapse; }
-        th { text-align: left; padding: 18px 25px; color: var(--text-muted); font-size: 0.8rem; border-bottom: 1px solid var(--border); text-transform: uppercase; letter-spacing: 1px; }
-        td { padding: 18px 25px; border-bottom: 1px solid var(--border); font-size: 0.95rem; font-weight: 600; transition: 0.2s; }
-        tr:hover td { background: var(--bg-hover); color: #fff; cursor: pointer; }
-
-        /* CARDS DE NOTÍCIAS */
-        .news-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 25px; }
-        .news-card { padding: 0; overflow: hidden; display: flex; flex-direction: column; height: 100%; transition: all 0.3s; border: 1px solid var(--border); }
-        .news-card:hover { border-color: var(--brand-primary); transform: translateY(-5px); box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
-        .news-img { height: 160px; background-size: cover; background-position: center; }
-        .news-content { padding: 20px; flex: 1; display: flex; flex-direction: column; }
-        .news-tag { font-size: 0.75rem; font-weight: 800; color: var(--brand-primary); text-transform: uppercase; margin-bottom: 8px; }
-
-        /* CARDS DE INVESTIDORES */
-        .rank-card { display: flex; align-items: center; padding: 20px 25px; border-bottom: 1px solid var(--border); transition: 0.2s; cursor: pointer; }
-        .rank-card:hover { background: rgba(255,255,255,0.03); transform: translateX(5px); }
-        .rank-avatar { width: 50px; height: 50px; border-radius: 50%; background-size: cover; border: 2px solid var(--border); margin-right: 20px; }
-
-        /* CHATBOT IA */
-        .chat-container { display: flex; flex-direction: column; height: 100%; border-radius: 16px; border: 1px solid var(--border); background: var(--bg-panel); overflow: hidden; }
-        .chat-header { padding: 20px; border-bottom: 1px solid var(--border); font-weight: 800; display: flex; gap: 10px; align-items: center; background: rgba(0,0,0,0.2); }
-        .chat-body { flex: 1; padding: 25px; overflow-y: auto; display: flex; flex-direction: column; gap: 20px; }
-        .msg { max-width: 80%; padding: 15px 20px; border-radius: 18px; font-size: 1rem; line-height: 1.6; }
-        .bot { background: rgba(0, 242, 255, 0.08); border: 1px solid rgba(0, 242, 255, 0.2); align-self: flex-start; border-bottom-left-radius: 2px; color: #d1d5db; }
-        .user { background: linear-gradient(135deg, var(--brand-secondary), var(--brand-primary)); color: #000; align-self: flex-end; border-bottom-right-radius: 2px; font-weight: 700; box-shadow: 0 5px 15px var(--brand-glow); }
-
-        /* MODAIS E OVERLAYS */
-        .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 1000; display: flex; align-items: center; justify-content: center; opacity: 0; pointer-events: none; transition: 0.4s; backdrop-filter: blur(10px); }
-        .modal.open { opacity: 1; pointer-events: all; }
-        .modal-box { background: var(--bg-panel); border: 1px solid var(--border); border-radius: 20px; overflow: hidden; max-height: 90vh; display: flex; flex-direction: column; width: 900px; box-shadow: 0 25px 60px rgba(0,0,0,0.8); transform: scale(0.95); transition: 0.4s; }
-        .modal.open .modal-box { transform: scale(1); }
-
-        .fullscreen-chart { position: fixed; inset: 0; z-index: 2000; background: #000; display: none; flex-direction: column; }
-        .fullscreen-chart.active { display: flex; }
-
-        /* TOASTS */
-        #toast-container { position: fixed; bottom: 30px; right: 30px; z-index: 2000; display: flex; flex-direction: column; gap: 15px; }
-        .toast { padding: 18px 25px; background: rgba(15, 20, 30, 0.95); border-radius: 12px; border-left: 4px solid; display: flex; align-items: center; gap: 15px; box-shadow: 0 10px 40px rgba(0,0,0,0.6); color: #fff; min-width: 320px; animation: slideIn 0.3s; backdrop-filter: blur(10px); border: 1px solid var(--border); }
-        @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
-
-        /* =================================================================================
-           🚨 CORREÇÃO CSS DE VISIBILIDADE FORÇADA (GARANTIA DE FUNCIONAMENTO)
-           ================================================================================= */
-        #app, main, aside, .view.active, .card, header, .nav-item, 
-        .rank-card, .news-card, .chat-container, table, tr, td, 
-        input, button, canvas {
-            opacity: 1 !important; 
-            visibility: visible !important; 
-            transform: none !important; 
-            animation: none !important; 
-            display: block; 
-        }
-        
-        /* Restauração de Displays (Layout) */
-        #app, .flex, .nav-item, header, .rank-card, .balance-pill, .brand-logo, .chat-header { display: flex !important; }
-        .grid-4 { display: grid !important; }
-        .grid-2 { display: grid !important; }
-        .news-grid { display: grid !important; }
-        .trade-layout { display: grid !important; }
-        table { display: table !important; }
-        tr { display: table-row !important; }
-        td, th { display: table-cell !important; }
-        .view { display: none; } 
-        .view.active { display: block !important; }
-
-        @media (max-width: 1024px) {
-            #app { flex-direction: column !important; }
-            aside { width: 100% !important; height: 80px !important; flex-direction: row !important; padding: 10px !important; overflow-x: auto; }
-            .brand-logo, .badge { display: none !important; }
-            .grid-4, .grid-2, .trade-layout { grid-template-columns: 1fr !important; }
-            #tv-chart-container { min-height: 400px; }
-        }
-    </style>
+    <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+    <canvas id="bg-canvas"></canvas>
 
-    <canvas id="bg-canvas" style="position:fixed; inset:0; z-index:-1;"></canvas>
+    <div id="login-overlay" class="modal-overlay hidden">
+        <div class="modal-card auth-card">
+            <div class="brand-header">
+                <i class="fas fa-cube logo-icon"></i>
+                <h2>AlphaFlow</h2>
+            </div>
+            <p>Sua sessão expirou ou você precisa entrar.</p>
+            <div class="auth-forms">
+                <input type="text" id="auth-email" placeholder="E-mail (@gmail.com / @hotmail.com)" class="input-dark">
+                <input type="password" id="auth-pass" placeholder="Senha" class="input-dark">
+                <button class="btn btn-primary" onclick="Auth.login()">ENTRAR / CRIAR</button>
+            </div>
+            <small style="color:var(--text-muted); display:block; margin-top:10px;">Login cria conta automaticamente se não existir.</small>
+        </div>
+    </div>
 
     <div id="app">
-        <aside>
-            <div class="brand-logo">
-                <div class="logo-icon"><i class="fas fa-cube"></i></div>
-                <div class="brand-text">AlphaFlow</div>
+        <aside class="sidebar">
+            <div class="brand">
+                <div class="logo-box"><i class="fas fa-cube"></i></div>
+                <span>AlphaFlow</span>
             </div>
-            <nav style="display:flex; flex-direction:column; width:100%; gap:5px;">
+            <nav class="nav-menu">
                 <div class="nav-item active" onclick="Router.go('dashboard')"><i class="fas fa-th-large"></i> <span>Dashboard</span></div>
-                <div class="nav-item" onclick="Router.go('trade')"><i class="fas fa-chart-candlestick"></i> <span>Trade Pro</span></div>
-                <div class="nav-item" onclick="Router.go('assets')"><i class="fas fa-globe"></i> <span>Mercado Global</span></div>
-                <div class="nav-item" onclick="Router.go('news')"><i class="fas fa-newspaper"></i> <span>Alpha News</span> <span class="badge">50+</span></div>
-                <div class="nav-item" onclick="Router.go('rankings')"><i class="fas fa-crown"></i> <span>Elite Rank</span> <span class="badge">Novo</span></div>
-                <div class="nav-item" onclick="Router.go('chatbot')"><i class="fas fa-robot"></i> <span>IA Neural Core</span></div>
-                <div class="nav-item" style="margin-top:auto;" onclick="Router.go('account')"><i class="fas fa-user-circle"></i> <span>Perfil & Conta</span></div>
-                <div class="nav-item" onclick="Router.go('settings')"><i class="fas fa-sliders-h"></i> <span>Ajustes</span></div>
+                <div class="nav-item" onclick="Router.go('trade-pro')"><i class="fas fa-chart-candlestick"></i> <span>Trade Pro</span></div>
+                <div class="nav-item" onclick="Router.go('market')"><i class="fas fa-globe"></i> <span>Mercado Global</span></div>
+                <div class="nav-item" onclick="Router.go('news')"><i class="fas fa-newspaper"></i> <span>Alpha News</span></div>
+                <div class="nav-item" onclick="Router.go('ai')"><i class="fas fa-robot"></i> <span>IA Advisor</span></div>
+                <div class="divider"></div>
+                <div class="nav-item" onclick="Router.go('settings')"><i class="fas fa-cog"></i> <span>Ajustes</span></div>
             </nav>
+            <div class="user-mini">
+                <div class="avatar"><i class="fas fa-user"></i></div>
+                <div class="info">
+                    <span id="sidebar-user">Visitante</span>
+                    <small id="sidebar-type">Iniciante</small>
+                </div>
+            </div>
         </aside>
 
         <main>
-            <header>
-                <div class="market-status">
-                    <div class="status-dot"></div> MERCADO AO VIVO
-                </div>
-                <div class="user-panel">
-                    <div class="balance-pill">
-                        <i class="fas fa-wallet text-brand"></i>
-                        <span class="mono font-bold" style="font-size:1.1rem;" id="header-balance">---</span>
-                        <button onclick="Profile.addBalance()" class="btn" style="padding:4px 10px; font-size:0.8rem; border:none; background:var(--up); color:#000;">+</button>
-                    </div>
-                    <div class="user-avatar">EU</div>
+            <header class="top-bar">
+                <div class="live-indicator"><span class="dot"></span> MERCADO AO VIVO</div>
+                <div class="wallet-pill">
+                    <i class="fas fa-wallet"></i>
+                    <span class="mono" id="header-balance">R$ 0,00</span>
                 </div>
             </header>
 
             <section id="view-dashboard" class="view active">
-                <div class="section-title"><i class="fas fa-chart-pie text-brand"></i> Resumo do Portfólio</div>
-                <div class="grid-4">
-                    <div class="card">
-                        <div class="sub-txt">Patrimônio Total</div>
-                        <div class="big-num mono" id="dash-total">---</div>
+                <h2>Visão Geral</h2>
+                <div class="kpi-grid">
+                    <div class="card kpi">
+                        <small>Patrimônio Total</small>
+                        <h3 class="mono" id="dash-equity">R$ 0,00</h3>
                     </div>
-                    <div class="card">
-                        <div class="sub-txt">Lucro / Prejuízo (P&L)</div>
-                        <div class="big-num mono" id="dash-pnl">---</div>
+                    <div class="card kpi">
+                        <small>Disponível</small>
+                        <h3 class="mono text-brand" id="dash-cash">R$ 0,00</h3>
                     </div>
-                    <div class="card" style="border-color:var(--brand-primary); background:rgba(0, 242, 255, 0.05);">
-                        <div class="sub-txt text-brand">Poder de Compra</div>
-                        <div class="big-num mono text-brand" id="dash-cash">---</div>
+                    <div class="card kpi">
+                        <small>Lucro/Prejuízo</small>
+                        <h3 class="mono" id="dash-pnl">R$ 0,00</h3>
                     </div>
-                    <div class="card">
-                        <div class="sub-txt">Moeda Base</div>
-                        <div class="big-num mono text-gold" id="dash-currency">BRL</div>
+                    <div class="card kpi">
+                        <small>Posições Abertas</small>
+                        <h3 class="mono" id="dash-positions">0</h3>
                     </div>
                 </div>
-                <div class="grid-2" style="margin-top:30px;">
+                <div class="charts-grid">
                     <div class="card">
-                        <div class="flex between" style="margin-bottom:20px;"><h3>Alocação de Ativos</h3></div>
-                        <div style="height:350px;"><canvas id="chart-allocation"></canvas></div>
+                        <h4>Evolução Patrimonial</h4>
+                        <div class="chart-box"><canvas id="chart-evolution"></canvas></div>
                     </div>
                     <div class="card">
-                        <div class="flex between" style="margin-bottom:20px;"><h3>Evolução Patrimonial</h3></div>
-                        <div style="height:350px;"><canvas id="chart-history"></canvas></div>
+                        <h4>Alocação de Ativos</h4>
+                        <div class="chart-box"><canvas id="chart-allocation"></canvas></div>
                     </div>
                 </div>
             </section>
 
-            <section id="view-trade" class="view">
+            <section id="view-market" class="view">
+                <h2>Mercado Global</h2>
+                <div class="filters">
+                    <input type="text" placeholder="Buscar ativo..." class="input-dark" onkeyup="Market.filter(this.value)">
+                </div>
+                <div class="market-grid" id="market-list">
+                </div>
+            </section>
+
+            <section id="view-trade-pro" class="view">
                 <div class="trade-layout">
-                    <div class="card nopad" style="display:flex; flex-direction:column; border:1px solid var(--brand-glow);">
-                        <div style="padding:15px 25px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; background:rgba(0,0,0,0.3);">
-                            <div class="flex center gap-10">
-                                <select id="asset-selector" class="asset-selector" onchange="Trade.switchAsset(this.value)"></select>
-                                <span class="tag text-brand" id="trade-asset-type">TYPE</span>
+                    <div class="chart-area card">
+                        <div class="chart-header">
+                            <select id="pro-asset-select" onchange="TradePro.changeAsset(this.value)" class="input-dark"></select>
+                            <div class="chart-types">
+                                <button class="tf-btn active" onclick="TradePro.setChartType('candlestick')">Vela</button>
+                                <button class="tf-btn" onclick="TradePro.setChartType('line')">Linha</button>
+                                <button class="tf-btn" onclick="TradePro.setChartType('area')">Área</button>
                             </div>
-                            <div class="flex center gap-20">
-                                <div class="mono" style="font-size:1.5rem; font-weight:800;" id="trade-price">---</div>
-                                <button class="btn" onclick="ChartEngine.toggleFullscreen()"><i class="fas fa-expand"></i> Tela Cheia</button>
+                            <div class="timeframes">
+                                <button class="tf-btn active" onclick="TradePro.setTF('1m')">1m</button>
+                                <button class="tf-btn" onclick="TradePro.setTF('5m')">5m</button>
+                                <button class="tf-btn" onclick="TradePro.setTF('1h')">1h</button>
+                                <button class="tf-btn" onclick="TradePro.setTF('4h')">4h</button>
+                                <button class="tf-btn" onclick="TradePro.setTF('1d')">1D</button>
+                            </div>
+                            <div class="indicators">
+                                <label><input type="checkbox" onchange="TradePro.toggleInd('sma')"> SMA</label>
+                                <label><input type="checkbox" onchange="TradePro.toggleInd('ema')"> EMA</label>
+                                <label><input type="checkbox" onchange="TradePro.toggleInd('rsi')"> RSI</label>
+                                <label><input type="checkbox" onchange="TradePro.toggleInd('macd')"> MACD</label>
+                                <label><input type="checkbox" onchange="TradePro.toggleInd('bb')"> BB</label>
+                                <label><input type="checkbox" onchange="TradePro.toggleInd('vol')"> Vol</label>
                             </div>
                         </div>
-                        <div class="chart-toolbar">
-                            <div class="flex gap-10 center" style="border-right:1px solid var(--border); padding-right:15px;">
-                                <div class="tool-btn active" onclick="ChartEngine.setType('candle')"><i class="fas fa-chart-bar"></i> Candles</div>
-                                <div class="tool-btn" onclick="ChartEngine.setType('line')"><i class="fas fa-wave-square"></i> Linha</div>
-                            </div>
-                            <div class="flex gap-10 center" style="padding-left:15px;">
-                                <span class="text-muted" style="font-size:0.75rem;">TIMEFRAME:</span>
-                                <div class="tool-btn" onclick="ChartEngine.setTF('1H')">1H</div>
-                                <div class="tool-btn active" onclick="ChartEngine.setTF('1D')">1D</div>
-                                <div class="tool-btn" onclick="ChartEngine.setTF('1W')">1W</div>
-                            </div>
-                        </div>
-                        <div id="tv-chart-container" style="flex:1; position:relative; min-height:450px;"></div>
+                        <div id="pro-chart-container"></div>
                     </div>
-
-                    <div class="card" style="display:flex; flex-direction:column; gap:25px; border-top:4px solid var(--brand-primary);">
-                        <h3 class="section-title"><i class="fas fa-bolt text-brand"></i> Executar Ordem</h3>
-                        <div class="flex between" style="background:var(--bg-hover); padding:15px; border-radius:10px;">
-                            <span class="text-muted">Saldo Disponível:</span>
-                            <span class="mono font-bold" id="trade-balance">---</span>
+                    <div class="order-panel card">
+                        <h3>Ordem</h3>
+                        <div class="order-info">
+                            <span>Preço</span> <span class="mono" id="pro-price">---</span>
                         </div>
-                        <div>
-                            <label class="sub-txt" style="display:block; margin-bottom:10px;">Quantidade</label>
-                            <div style="display:flex; border:1px solid var(--border); border-radius:10px;">
-                                <button class="btn" style="border:none; width:50px;" onclick="Trade.adj(-1)">-</button>
-                                <input type="number" id="trade-qty" value="1" style="text-align:center; border:none; font-size:1.2rem;" oninput="Trade.updateUI()">
-                                <button class="btn" style="border:none; width:50px;" onclick="Trade.adj(1)">+</button>
-                            </div>
+                        <div class="order-info">
+                            <span>Carteira</span> <span class="mono" id="pro-wallet">---</span>
                         </div>
-                        <div style="background:rgba(0,0,0,0.3); padding:20px; border-radius:12px; border:1px solid var(--border);">
-                            <div class="flex between sub-txt" style="margin-bottom:8px;"><span>Total Estimado:</span> <span class="mono font-bold text-main" style="font-size:1.1rem;" id="trade-total">---</span></div>
-                            <div class="flex between sub-txt" style="font-size:0.8rem;"><span>Taxa (0.1%):</span> <span class="mono" id="trade-fee">---</span></div>
+                        <div class="input-group">
+                            <label>Quantidade</label>
+                            <input type="number" id="pro-qty" value="1" min="0.1" step="0.1" class="input-dark">
                         </div>
-                        <div class="flex gap-10" style="margin-top:auto;">
-                            <button class="btn-buy" onclick="Trade.exec('buy')">COMPRAR</button>
-                            <button class="btn-sell" onclick="Trade.exec('sell')">VENDER</button>
+                        <div class="total-calc">
+                            Total: <span id="pro-total" class="mono">R$ 0,00</span>
+                        </div>
+                        <div class="actions">
+                            <button class="btn btn-buy" onclick="Trade.execute('buy')">COMPRAR</button>
+                            <button class="btn btn-sell" onclick="Trade.execute('sell')">VENDER</button>
                         </div>
                     </div>
-                </div>
-            </section>
-
-            <section id="view-assets" class="view">
-                <div class="section-title"><i class="fas fa-globe text-brand"></i> Mercado Global</div>
-                <div class="card nopad">
-                    <table id="table-assets">
-                        <thead><tr><th>Ativo</th><th>Nome</th><th>Setor</th><th>Preço</th><th>Var 24h</th><th>Ação</th></tr></thead>
-                        <tbody id="assets-body"></tbody>
-                    </table>
-                </div>
-            </section>
-
-            <section id="view-rankings" class="view">
-                <div class="section-title"><i class="fas fa-crown text-gold"></i> Elite Investors Hall of Fame</div>
-                <p class="text-muted" style="margin-bottom:30px;">Clique em um perfil para ver a biografia e estratégia detalhada.</p>
-                <div class="card nopad">
-                    <div id="rank-container"></div>
                 </div>
             </section>
 
             <section id="view-news" class="view">
-                <div class="flex between center" style="margin-bottom:30px;">
-                    <div class="section-title" style="margin:0;"><i class="fas fa-newspaper text-brand"></i> AlphaNews Wire</div>
-                    <div class="flex gap-10">
-                        <button class="btn btn-primary" onclick="News.filter('all')">Todos</button>
-                        <button class="btn" onclick="News.filter('Cripto')">Cripto</button>
-                        <button class="btn" onclick="News.filter('Stocks')">Ações</button>
-                    </div>
+                <h2>Alpha News Wire</h2>
+                <div class="filters">
+                    <button class="btn-filter active" onclick="News.filter('all')">Todos</button>
+                    <button class="btn-filter" onclick="News.filter('Cripto')">Cripto</button>
+                    <button class="btn-filter" onclick="News.filter('Ações')">Ações</button>
+                    <button class="btn-filter" onclick="News.filter('Commodities')">Commodities</button>
                 </div>
-                <div class="news-grid" id="news-container"></div>
-            </section>
-
-            <section id="view-chatbot" class="view">
-                <div class="chat-container">
-                    <div class="chat-header">
-                        <i class="fas fa-brain" style="color:var(--brand-primary); font-size:1.5rem;"></i> 
-                        <div>
-                            <div>AlphaNeural Core 5.0</div>
-                            <span style="font-size:0.75rem; color:var(--up);">● ONLINE | CONTEXTO ATIVO</span>
-                        </div>
-                    </div>
-                    <div class="chat-body" id="chat-history">
-                        <div class="msg bot">Olá. Sou sua IA financeira avançada. Pergunte sobre ativos, estratégias ou conceitos técnicos.</div>
-                    </div>
-                    <div style="padding:20px; border-top:1px solid var(--border); display:flex; gap:15px; background:rgba(0,0,0,0.2);">
-                        <input type="text" id="chat-input" placeholder="Digite sua pergunta..." onkeypress="if(event.key==='Enter') Chat.send()">
-                        <button class="btn btn-primary" onclick="Chat.send()">ENVIAR</button>
-                    </div>
+                <div class="news-list" id="news-container">
                 </div>
             </section>
 
-            <section id="view-account" class="view">
-                <div class="card" style="max-width:600px; margin:0 auto; border-top:4px solid var(--brand-secondary);">
-                    <div class="section-title"><i class="fas fa-shield-alt text-brand"></i> Perfil do Investidor</div>
-                    <div style="background:var(--bg-hover); padding:25px; border-radius:12px; margin-bottom:30px; display:flex; align-items:center; justify-content:space-between;">
-                        <div>
-                            <div class="sub-txt">Saldo Atual</div>
-                            <div class="mono" style="font-size:1.8rem; font-weight:800;" id="account-balance">---</div>
-                        </div>
-                        <button class="btn btn-primary" onclick="Profile.addBalance()">+ R$ 1.000</button>
+            <section id="view-ai" class="view">
+                <div class="ai-container card">
+                    <div class="ai-header">
+                        <i class="fas fa-brain text-brand"></i> IA Advisor v2.0
+                        <button class="btn btn-sm" onclick="AI.showFAQ()">Perguntas que respondo</button>
                     </div>
-                    
-                    <h4 style="margin-bottom:15px; color:var(--brand-primary);">Dados Pessoais (Validação Ativa)</h4>
-                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:20px;">
-                        <div>
-                            <label class="sub-txt" style="display:block; margin-bottom:8px;">Nome Completo</label>
-                            <input type="text" oninput="Validation.name(this)" placeholder="Seu nome oficial">
-                            <div class="error-msg" style="display:none; color:var(--down); font-size:0.75rem;">Apenas letras permitidas.</div>
-                        </div>
-                        <div>
-                            <label class="sub-txt" style="display:block; margin-bottom:8px;">CPF</label>
-                            <input type="text" oninput="Validation.cpf(this)" placeholder="000.000.000-00" maxlength="14">
-                            <div class="error-msg" style="display:none; color:var(--down); font-size:0.75rem;">Formato inválido.</div>
-                        </div>
+                    <div class="chat-feed" id="chat-feed">
+                        <div class="msg bot">Olá! Sou seu assistente financeiro avançado. Posso analisar o mercado, explicar conceitos ou ajudar com seus investimentos. O que deseja saber?</div>
                     </div>
-                    <div style="margin-bottom:20px;">
-                        <label class="sub-txt" style="display:block; margin-bottom:8px;">Senha Mestra</label>
-                        <input type="password" oninput="Validation.pass(this)" placeholder="••••••••">
+                    <div class="chat-input-area">
+                        <input type="text" id="chat-input" placeholder="Digite sua dúvida..." class="input-dark" onkeypress="if(event.key==='Enter') AI.send()">
+                        <button class="btn btn-primary" onclick="AI.send()"><i class="fas fa-paper-plane"></i></button>
                     </div>
-                    <button class="btn btn-primary" style="width:100%; padding:15px; font-size:1.1rem;" onclick="Validation.submit()">SALVAR DADOS</button>
                 </div>
             </section>
 
             <section id="view-settings" class="view">
-                <div class="card" style="max-width:500px;">
-                    <div class="section-title">Configurações</div>
-                    <div style="margin-top:20px;">
-                        <label class="sub-txt" style="display:block; margin-bottom:10px;">Moeda Base</label>
-                        <div class="flex gap-10">
-                            <button class="btn" onclick="Currency.set('USD')">USD ($)</button>
-                            <button class="btn" onclick="Currency.set('BRL')">BRL (R$)</button>
-                            <button class="btn" onclick="Currency.set('EUR')">EUR (€)</button>
+                <h2>Ajustes & Perfil</h2>
+                <div class="grid-2">
+                    <div class="card">
+                        <h3>Perfil do Investidor</h3>
+                        <label>Nome Completo</label>
+                        <input type="text" id="set-name" class="input-dark validate-name">
+                        
+                        <label>E-mail</label>
+                        <input type="text" id="set-email" class="input-dark" placeholder="ex: usuario@gmail.com">
+                        
+                        <label>Perfil de Risco</label>
+                        <select id="set-type" class="input-dark">
+                            <option value="Iniciante">Iniciante</option>
+                            <option value="Conservador">Conservador</option>
+                            <option value="Moderado">Moderado</option>
+                            <option value="Agressivo">Agressivo</option>
+                            <option value="Trader">Trader</option>
+                        </select>
+                        <button class="btn btn-primary mt-20" onclick="Settings.saveProfile()">Salvar Alterações</button>
+                    </div>
+                    <div class="card">
+                        <h3>Banco Alpha</h3>
+                        <p class="text-muted">Adicione saldo simulado à sua conta. Limite: 3x por dia.</p>
+                        <div class="balance-box">
+                            <h1 class="mono text-up">+ R$ 10.000,00</h1>
+                            <button class="btn btn-buy w-100" onclick="Settings.addFunds()">RESGATAR AGORA</button>
+                            <small class="mt-10 block" id="refill-counter">Restam 3 usos hoje.</small>
                         </div>
-                        <p class="sub-txt" style="margin-top:15px; background:var(--bg-hover); padding:10px; border-radius:6px;">
-                            <i class="fas fa-info-circle"></i> A troca recalcula todo o sistema instantaneamente.
-                        </p>
+                        <hr class="divider">
+                        <div class="config-toggles">
+                            <label class="toggle-row">
+                                <span>Partículas de Fundo</span>
+                                <input type="checkbox" checked onchange="App.toggleBg(this.checked)">
+                            </label>
+                        </div>
                     </div>
                 </div>
             </section>
         </main>
     </div>
 
-    <div id="fs-modal" class="fullscreen-chart">
-        <div style="padding:15px 30px; background:var(--bg-panel); display:flex; justify-content:space-between; border-bottom:1px solid var(--border); align-items:center;">
-            <div class="flex center gap-10">
-                <h2 id="fs-symbol" style="margin:0;">BTC</h2>
-                <span class="tag text-brand">MODO TELA CHEIA</span>
+    <div id="modal-invest" class="modal-overlay hidden">
+        <div class="modal-card invest-card">
+            <div class="modal-header">
+                <h3 id="m-asset-name">Bitcoin (BTC)</h3>
+                <button class="close-btn" onclick="UI.closeModal('modal-invest')">&times;</button>
             </div>
-            <button class="btn" onclick="ChartEngine.toggleFullscreen()">FECHAR ✕</button>
-        </div>
-        <div id="fs-chart-container" style="flex:1; background:#000;"></div>
-    </div>
-
-    <div id="modal-news" class="modal">
-        <div class="modal-box">
-            <div style="padding:20px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between;">
-                <span class="tag text-brand" id="m-news-cat">CATEGORIA</span>
-                <button class="btn" onclick="document.getElementById('modal-news').classList.remove('open')">✕</button>
-            </div>
-            <div style="padding:30px; overflow-y:auto; max-height:60vh;">
-                <h1 id="m-news-title" style="margin-bottom:20px; font-size:1.8rem;"></h1>
-                <p id="m-news-body" style="font-size:1.1rem; line-height:1.8; color:var(--text-muted);"></p>
-            </div>
-        </div>
-    </div>
-
-    <div id="modal-investor" class="modal">
-        <div class="modal-box" style="width:600px;">
-            <div style="padding:30px; background:linear-gradient(135deg, var(--brand-secondary), var(--brand-primary));">
-                <h1 id="inv-name" style="font-size:2rem; font-weight:800; color:#000;">Nome</h1>
-            </div>
-            <div style="padding:30px;">
-                <div class="grid-2" style="margin-bottom:20px;">
-                    <div><span class="sub-txt">Patrimônio</span><div class="mono text-gold" id="inv-net" style="font-size:1.2rem;">--</div></div>
-                    <div><span class="sub-txt">Estratégia</span><div class="tag text-brand" id="inv-type">--</div></div>
-                    <div><span class="sub-txt">Idade</span><div id="inv-age">--</div></div>
-                    <div><span class="sub-txt">Origem</span><div id="inv-place">--</div></div>
+            <div class="modal-body">
+                <div id="modal-chart-container" style="height: 250px;"></div>
+                <div class="trade-controls">
+                    <div class="price-display">
+                        <span class="mono big" id="m-price">---</span>
+                        <span class="badge" id="m-var">0%</span>
+                    </div>
+                    <div class="wallet-display">Saldo: <span class="mono" id="m-wallet">---</span></div>
+                    <div class="input-row">
+                        <button class="btn-qty" onclick="Trade.adjQty(-1)">-</button>
+                        <input type="number" id="m-qty" value="1" class="input-dark text-center">
+                        <button class="btn-qty" onclick="Trade.adjQty(1)">+</button>
+                    </div>
+                    <div class="action-row">
+                        <button class="btn btn-buy" onclick="Trade.execute('buy', true)">COMPRAR</button>
+                        <button class="btn btn-sell" onclick="Trade.execute('sell', true)">VENDER</button>
+                    </div>
                 </div>
-                <p id="inv-bio" style="color:var(--text-muted); line-height:1.6; font-size:1rem;"></p>
-                <button class="btn btn-primary" style="width:100%; margin-top:20px;" onclick="document.getElementById('modal-investor').classList.remove('open')">FECHAR PERFIL</button>
             </div>
         </div>
     </div>
 
-    <div id="modal-auth" class="modal">
-        <div class="modal-box" style="width:450px; padding:40px; text-align:center;">
-            <i class="fas fa-lock text-down" style="font-size:3rem; margin-bottom:20px;"></i>
-            <h2 style="margin-bottom:10px;">Ação Restrita</h2>
-            <p class="sub-txt" style="margin-bottom:30px;">Para alterar dados sensíveis, acesse sua conta.</p>
-            <div class="col flex gap-10">
-                <button class="btn btn-primary" onclick="alert('Redirecionando para Login...')">ENTRAR NA CONTA</button>
-                <button class="btn" onclick="alert('Redirecionando para Cadastro...')">CRIAR CONTA</button>
+    <div id="modal-news" class="modal-overlay hidden">
+        <div class="modal-card news-card">
+            <div class="modal-header">
+                <span class="badge" id="n-cat">Categoria</span>
+                <button class="close-btn" onclick="UI.closeModal('modal-news')">&times;</button>
             </div>
-            <button class="btn" style="border:none; margin-top:20px; text-decoration:underline; background:transparent;" onclick="document.getElementById('modal-auth').classList.remove('open')">Cancelar</button>
+            <h2 id="n-title">Título</h2>
+            <div id="n-body" class="news-body-content"></div>
+        </div>
+    </div>
+
+    <div id="modal-faq" class="modal-overlay hidden">
+        <div class="modal-card faq-card">
+            <div class="modal-header">
+                <h3 style="flex:1">Perguntas Frequentes (IA Advisor)</h3>
+                <button class="close-btn" onclick="UI.closeModal('modal-faq')">&times;</button>
+            </div>
+            <div id="faq-list" class="faq-list"></div>
+            <button class="btn btn-primary mt-20 w-100" onclick="UI.closeModal('modal-faq')">Fechar</button>
         </div>
     </div>
 
     <div id="toast-container"></div>
-
-    <script>
-        /* =========================================
-           🧠 LÓGICA DO SISTEMA ALPHAFLOW V8.0
-           ========================================= */
-
-        // 1. DATA STORE
-        const Store = {
-            currency: 'BRL',
-            rates: { USD: 1, BRL: 5.05, EUR: 0.92 },
-            balance: 1000.00,
-            portfolio: {},
-            history: [1000],
-            addBalanceCount: 0
-        };
-
-        const DB = {
-            assets: [
-                {s:"BTC", n:"Bitcoin", p:64500, t:"Cripto", v:0.02}, {s:"ETH", n:"Ethereum", p:3400, t:"Cripto", v:0.015},
-                {s:"SOL", n:"Solana", p:145, t:"Cripto", v:0.03}, {s:"AAPL", n:"Apple Inc", p:175, t:"Stocks", v:0.008},
-                {s:"NVDA", n:"Nvidia", p:920, t:"Stocks", v:0.02}, {s:"MSFT", n:"Microsoft", p:420, t:"Stocks", v:0.005},
-                {s:"TSLA", n:"Tesla", p:172, t:"Stocks", v:0.025}, {s:"AMZN", n:"Amazon", p:182, t:"Stocks", v:0.011},
-                {s:"GOOGL", n:"Alphabet", p:170, t:"Stocks", v:0.010}, {s:"GOLD", n:"Ouro (XAU)", p:2360, t:"Cmdty", v:0.005},
-                {s:"OIL", n:"Petróleo", p:86, t:"Cmdty", v:0.015}, {s:"SPY", n:"S&P 500", p:518, t:"ETF", v:0.006}
-            ],
-            investors: [
-                {n:"Warren Buffett", a:93, l:"USA", w:"$135B", m:"Value", b:"CEO da Berkshire Hathaway. O maior investidor de todos os tempos."},
-                {n:"Ray Dalio", a:74, l:"USA", w:"$19B", m:"Macro", b:"Fundador da Bridgewater. Criador da estratégia All Weather."},
-                {n:"George Soros", a:93, l:"HUN", w:"$6.7B", m:"Hedge", b:"Quebrou o Banco da Inglaterra. Mestre da Reflexividade."},
-                {n:"Jim Simons", a:86, l:"USA", w:"$31B", m:"Quant", b:"Fundador da Renaissance Technologies. O rei dos algoritmos."},
-                {n:"Ken Griffin", a:55, l:"USA", w:"$38B", m:"Maker", b:"Fundador da Citadel. Gigante do market making."},
-                {n:"Cathie Wood", a:68, l:"USA", w:"$250M", m:"Tech", b:"CEO da ARK Invest. Focada em inovação disruptiva."},
-                {n:"Charlie Munger", a:99, l:"USA", w:"$2.6B", m:"Value", b:"Parceiro histórico de Buffett. Mestre dos modelos mentais."},
-                {n:"Peter Lynch", a:80, l:"USA", w:"$450M", m:"Growth", b:"Geriu o fundo Magellan da Fidelity com retornos lendários."},
-                {n:"Elon Musk", a:52, l:"ZAF", w:"$200B", m:"Visionary", b:"CEO da Tesla e SpaceX. Visionário tecnológico."},
-                {n:"Satoshi Nakamoto", a:50, l:"Net", w:"$60B", m:"Crypto", b:"Criador anônimo do Bitcoin e da tecnologia Blockchain."},
-                {n:"Jeff Bezos", a:60, l:"USA", w:"$190B", m:"Ind.", b:"Fundador da Amazon. Focado em longo prazo."},
-                {n:"Larry Fink", a:71, l:"USA", w:"$1.2B", m:"Inst.", b:"CEO da BlackRock, a maior gestora de ativos do mundo."},
-                {n:"Bill Ackman", a:57, l:"USA", w:"$4.3B", m:"Activist", b:"CEO da Pershing Square. Investidor ativista famoso."},
-                {n:"Michael Burry", a:52, l:"USA", w:"$300M", m:"Short", b:"Previu a crise de 2008. Personagem de 'A Grande Aposta'."},
-                {n:"Paul Tudor Jones", a:69, l:"USA", w:"$8.1B", m:"Macro", b:"Previu o crash de 1987. Trader macro lendário."},
-                {n:"Carl Icahn", a:88, l:"USA", w:"$6B", m:"Activist", b:"Temido investidor ativista de Wall Street."},
-                {n:"Stanley Druckenmiller", a:70, l:"USA", w:"$6.4B", m:"Macro", b:"Ex-gestor de Soros. Nunca teve um ano de perdas."},
-                {n:"David Tepper", a:66, l:"USA", w:"$20B", m:"Debt", b:"Especialista em dívidas distressed."},
-                {n:"Howard Marks", a:78, l:"USA", w:"$2.2B", m:"Credit", b:"Co-fundador da Oaktree. Famoso por seus memorandos."},
-                {n:"Steve Cohen", a:67, l:"USA", w:"$19B", m:"Hedge", b:"Fundador da Point72. Trader agressivo."},
-                {n:"Chase Coleman", a:48, l:"USA", w:"$8B", m:"Tech", b:"Tiger Global. Focado em tecnologia e startups."},
-                {n:"Israel Englander", a:75, l:"USA", w:"$13B", m:"Multi", b:"Fundador da Millennium Management."},
-                {n:"David Einhorn", a:55, l:"USA", w:"$400M", m:"Value", b:"Fundador da Greenlight Capital."},
-                {n:"Dan Loeb", a:62, l:"USA", w:"$3B", m:"Activist", b:"CEO da Third Point."},
-                {n:"John Paulson", a:68, l:"USA", w:"$3B", m:"Arb", b:"Fez bilhões apostando contra o subprime."},
-                {n:"Masayoshi Son", a:66, l:"JPN", w:"$30B", m:"VC", b:"CEO do SoftBank. Maior investidor de tecnologia."},
-                {n:"Chamath Palihapitiya", a:47, l:"LKA", w:"$1B", m:"SPAC", b:"Rei das SPACs e Venture Capital."},
-                {n:"Changpeng Zhao", a:47, l:"CHN", w:"$33B", m:"Crypto", b:"Fundador da Binance, maior exchange do mundo."},
-                {n:"Vitalik Buterin", a:30, l:"RUS", w:"$600M", m:"Crypto", b:"Co-fundador do Ethereum."},
-                {n:"Kevin O'Leary", a:69, l:"CAN", w:"$400M", m:"Income", b:"Mr. Wonderful do Shark Tank."},
-                {n:"Mark Cuban", a:65, l:"USA", w:"$5.4B", m:"Shark", b:"Dono do Dallas Mavericks e investidor tech."},
-                {n:"Você", a:25, l:"Global", w:"$1k", m:"Starter", b:"O próximo grande investidor em formação no AlphaFlow."}
-            ],
-            news: []
-        };
-
-        // Populate News
-        const nTitles = ["Bitcoin rompe resistência", "Fed mantém taxas de juros", "Nvidia apresenta novo chip IA", "Petróleo sobe com tensão global", "Apple lança óculos VR"];
-        for(let i=0; i<50; i++) {
-            DB.news.push({
-                id: i,
-                title: `${nTitles[i%5]} e impacta mercados na região ${['EUA','Ásia','Europa'][i%3]}`,
-                cat: ["Cripto","Macro","Tech","Commodities"][i%4],
-                body: "Lorem ipsum dolor sit amet, consectetur adipiscing elit. O mercado apresenta alta volatilidade devido a fatores macroeconômicos recentes. Analistas recomendam cautela nas posições alavancadas."
-            });
-        }
-
-        // 2. CHART ENGINE (Lightweight Charts)
-        const ChartEngine = {
-            chart: null, candleSeries: null, lineSeries: null, activeAsset: null,
-            init: () => {
-                const container = document.getElementById('tv-chart-container');
-                if(!container) return;
-                
-                ChartEngine.chart = LightweightCharts.createChart(container, {
-                    layout: { background: { type: 'solid', color: 'transparent' }, textColor: '#d1d4dc' },
-                    grid: { vertLines: { color: 'rgba(42, 48, 60, 0.5)' }, horzLines: { color: 'rgba(42, 48, 60, 0.5)' } },
-                    width: container.clientWidth, height: 400,
-                    timeScale: { timeVisible: true, secondsVisible: false }
-                });
-
-                ChartEngine.candleSeries = ChartEngine.chart.addCandlestickSeries({ upColor: '#00e396', downColor: '#ff0055', borderVisible: false, wickUpColor: '#00e396', wickDownColor: '#ff0055' });
-                ChartEngine.lineSeries = ChartEngine.chart.addLineSeries({ color: '#00f2ff', lineWidth: 2, visible: false });
-
-                new ResizeObserver(entries => {
-                    if (entries.length === 0 || entries[0].target !== container) return;
-                    const newRect = entries[0].contentRect;
-                    ChartEngine.chart.applyOptions({ width: newRect.width, height: newRect.height });
-                }).observe(container);
-
-                ChartEngine.loadAsset(DB.assets[0]);
-                ChartEngine.loop();
-            },
-            loadAsset: (asset) => {
-                ChartEngine.activeAsset = asset;
-                const selector = document.getElementById('asset-selector');
-                if(selector.value !== asset.s) selector.value = asset.s;
-                document.getElementById('trade-asset-type').innerText = asset.t;
-                Trade.updateUI(asset.p);
-
-                const data = [];
-                let time = Math.floor(Date.now() / 1000) - (100 * 86400);
-                let price = asset.p;
-                for (let i = 0; i < 100; i++) {
-                    let open = price;
-                    let close = price * (1 + (Math.random() - 0.5) * 0.05);
-                    let high = Math.max(open, close) * (1 + Math.random() * 0.02);
-                    let low = Math.min(open, close) * (1 - Math.random() * 0.02);
-                    data.push({ time: time + i * 86400, open, high, low, close, value: close });
-                    price = close;
-                }
-                ChartEngine.candleSeries.setData(data);
-                ChartEngine.lineSeries.setData(data);
-                ChartEngine.chart.timeScale().fitContent();
-            },
-            setType: (type) => {
-                if(type === 'candle') { ChartEngine.candleSeries.applyOptions({visible:true}); ChartEngine.lineSeries.applyOptions({visible:false}); }
-                else { ChartEngine.candleSeries.applyOptions({visible:false}); ChartEngine.lineSeries.applyOptions({visible:true}); }
-            },
-            setTF: (tf) => {
-                Toast("Timeframe", `Gráfico ajustado para ${tf}`, "info");
-                ChartEngine.loadAsset(ChartEngine.activeAsset);
-            },
-            toggleFullscreen: () => {
-                const fsDiv = document.getElementById('fs-modal');
-                const isFs = fsDiv.classList.contains('active');
-                const targetId = isFs ? 'tv-chart-container' : 'fs-chart-container';
-                if(!isFs) {
-                    fsDiv.classList.add('active');
-                    document.getElementById('fs-symbol').innerText = ChartEngine.activeAsset.s;
-                } else fsDiv.classList.remove('active');
-                
-                const container = document.getElementById(targetId);
-                container.appendChild(ChartEngine.chart.chartElement());
-                ChartEngine.chart.applyOptions({ width: container.clientWidth, height: container.clientHeight });
-            },
-            loop: () => {
-                setInterval(() => {
-                    const last = ChartEngine.candleSeries.dataByIndex(ChartEngine.candleSeries.data().length - 1);
-                    if(!last) return;
-                    const change = (Math.random() - 0.5) * (last.close * 0.005);
-                    const newPrice = last.close + change;
-                    const updated = { ...last, close: newPrice, high: Math.max(last.high, newPrice), low: Math.min(last.low, newPrice), value: newPrice };
-                    ChartEngine.candleSeries.update(updated);
-                    ChartEngine.lineSeries.update(updated);
-                    ChartEngine.activeAsset.p = newPrice;
-                    if(document.getElementById('view-trade').classList.contains('active')) Trade.updateUI(newPrice);
-                }, 1000);
-            }
-        };
-
-        // 3. LOGIC & TRADE
-        const Logic = {
-            fmt: (val) => {
-                const rate = Store.rates[Store.currency];
-                const sym = {USD:'$', BRL:'R$', EUR:'€'}[Store.currency];
-                return `${sym} ${(val * rate).toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})}`;
-            },
-            updateDash: () => {
-                const invVal = Object.values(Store.portfolio).reduce((acc, i) => acc + (i.qty * DB.assets.find(a=>a.s===i.s).p), 0);
-                const total = Store.balance + invVal;
-                const pnl = total - 1000;
-
-                document.getElementById('header-balance').innerText = Logic.fmt(Store.balance);
-                document.getElementById('account-balance').innerText = Logic.fmt(Store.balance);
-                document.getElementById('dash-total').innerText = Logic.fmt(total);
-                document.getElementById('dash-cash').innerText = Logic.fmt(Store.balance);
-                document.getElementById('dash-pnl').innerText = Logic.fmt(pnl);
-                document.getElementById('dash-currency').innerText = Store.currency;
-
-                if(DashCharts.alloc) {
-                    DashCharts.alloc.data.labels = Object.keys(Store.portfolio);
-                    DashCharts.alloc.data.datasets[0].data = Object.values(Store.portfolio).map(i => i.qty * DB.assets.find(a=>a.s===i.s).p);
-                    DashCharts.alloc.update();
-                }
-            }
-        };
-
-        const Trade = {
-            switchAsset: (s) => ChartEngine.loadAsset(DB.assets.find(a=>a.s===s)),
-            adj: (n) => {
-                const el = document.getElementById('trade-qty');
-                let v = parseFloat(el.value) + n;
-                if(v < 0.01) v = 0.01;
-                el.value = v.toFixed(2);
-                Trade.updateUI();
-            },
-            updateUI: (priceOverride) => {
-                const price = priceOverride || ChartEngine.activeAsset.p;
-                const qty = parseFloat(document.getElementById('trade-qty').value) || 0;
-                document.getElementById('trade-price').innerText = Logic.fmt(price);
-                document.getElementById('trade-total').innerText = Logic.fmt(price * qty);
-                document.getElementById('trade-balance').innerText = Logic.fmt(Store.balance);
-            },
-            exec: (side) => {
-                const qty = parseFloat(document.getElementById('trade-qty').value);
-                const price = ChartEngine.activeAsset.p;
-                const total = qty * price;
-                const sym = ChartEngine.activeAsset.s;
-
-                if(side === 'buy') {
-                    if(Store.balance >= total) {
-                        Store.balance -= total;
-                        if(!Store.portfolio[sym]) Store.portfolio[sym] = { s: sym, qty: 0 };
-                        Store.portfolio[sym].qty += qty;
-                        Toast("Compra Realizada!", `+${qty} ${sym}`, "success");
-                    } else Toast("Saldo Insuficiente", "Recarregue no perfil.", "error");
-                } else {
-                    if(Store.portfolio[sym] && Store.portfolio[sym].qty >= qty) {
-                        Store.balance += total;
-                        Store.portfolio[sym].qty -= qty;
-                        if(Store.portfolio[sym].qty <= 0) delete Store.portfolio[sym];
-                        Toast("Venda Realizada!", `-${qty} ${sym}`, "success");
-                    } else Toast("Ativos Insuficientes", "", "error");
-                }
-                Logic.updateDash();
-            }
-        };
-
-        // 4. UI MODULES
-        const Render = {
-            assets: () => {
-                document.getElementById('assets-body').innerHTML = DB.assets.map(a => `
-                    <tr>
-                        <td><b>${a.s}</b></td>
-                        <td>${a.n}</td>
-                        <td class="tag">${a.t}</td>
-                        <td class="mono">${Logic.fmt(a.p)}</td>
-                        <td class="mono ${Math.random()>0.5?'text-up':'text-down'}">${(Math.random()*5-2.5).toFixed(2)}%</td>
-                        <td><button class="btn" style="padding:5px 10px; font-size:0.8rem;" onclick="Trade.switchAsset('${a.s}'); Router.go('trade')">TRADE</button></td>
-                    </tr>
-                `).join('');
-                document.getElementById('asset-selector').innerHTML = DB.assets.map(a => `<option value="${a.s}">${a.s}</option>`).join('');
-            },
-            rank: () => {
-                document.getElementById('rank-container').innerHTML = DB.investors.map((i,x) => `
-                    <div class="rank-card" onclick="Investors.openModal(${x})">
-                        <b style="width:30px; color:var(--brand-primary)">#${x+1}</b>
-                        <div style="width:40px; height:40px; background:#333; border-radius:50%; margin-right:15px; display:grid; place-items:center;">${i.n[0]}</div>
-                        <div style="flex:1">
-                            <b>${i.n}</b><br><span style="font-size:0.8rem; color:#888">${i.s}</span>
-                        </div>
-                        <b class="text-gold">${i.w}</b>
-                    </div>
-                `).join('');
-            },
-            news: () => {
-                document.getElementById('news-container').innerHTML = DB.news.map(n => `
-                    <div class="news-card" onclick="ModalNews('${n.title}', '${n.body}', '${n.cat}')">
-                        <div class="news-img" style="background-image:url('https://picsum.photos/seed/${n.id}/300/200')"></div>
-                        <div class="news-content">
-                            <span class="tag text-brand">${n.cat}</span>
-                            <h4 style="margin-top:10px;">${n.title}</h4>
-                        </div>
-                    </div>
-                `).join('');
-            }
-        };
-
-        const Investors = {
-            openModal: (idx) => {
-                const i = DB.investors[idx];
-                document.getElementById('inv-name').innerText = i.n;
-                document.getElementById('inv-age').innerText = i.a + " anos";
-                document.getElementById('inv-place').innerText = i.l;
-                document.getElementById('inv-net').innerText = i.w;
-                document.getElementById('inv-type').innerText = i.m;
-                document.getElementById('inv-bio').innerText = i.b;
-                document.getElementById('modal-investor').classList.add('open');
-            }
-        };
-
-        const DashCharts = {
-            alloc: null, history: null,
-            init: () => {
-                try {
-                    const ctx1 = document.getElementById('chart-allocation').getContext('2d');
-                    DashCharts.alloc = new Chart(ctx1, { type: 'doughnut', data: { labels: ['Caixa'], datasets: [{ data: [100], backgroundColor: ['#00f2ff','#00e396','#ff0055','#ffd700'], borderWidth:0 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: {position:'right', labels:{color:'#8a9ab8'}} } } });
-                    const ctx2 = document.getElementById('chart-history').getContext('2d');
-                    DashCharts.history = new Chart(ctx2, { type: 'line', data: { labels: ['Início'], datasets: [{ label:'Patrimônio', data: [1000], borderColor: '#00f2ff', tension: 0.4 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: {display:false} }, scales: {x:{display:false}, y:{display:false}} } });
-                } catch(e) {}
-            }
-        };
-
-        const Profile = {
-            addBalance: () => {
-                if(Store.addBalanceCount < 3) {
-                    Store.balance += 1000;
-                    Store.addBalanceCount++;
-                    Logic.updateDash();
-                    Toast("Saldo Adicionado", "+ R$ 1.000 (Simulação)", "success");
-                } else Toast("Limite Diário", "Máximo 3x por dia.", "error");
-            }
-        };
-
-        const Currency = { set: (c) => { Store.currency = c; Logic.updateDash(); Render.assets(); Trade.updateUI(); } };
-
-        const Chat = {
-            send: () => {
-                const inp = document.getElementById('chat-input');
-                const txt = inp.value; if(!txt) return;
-                document.getElementById('chat-history').innerHTML += `<div class="msg user">${txt}</div>`;
-                inp.value = '';
-                setTimeout(() => { 
-                    let reply = "Não entendi o contexto. Tente citar um ativo (ex: Bitcoin).";
-                    const low = txt.toLowerCase();
-                    const asset = DB.assets.find(a => low.includes(a.n.toLowerCase()));
-                    if(asset) reply = `Sobre <b>${asset.n}</b>: Preço atual ${Logic.fmt(asset.p)}. Tendência de volatilidade alta. RSI em 65 (Neutro).`;
-                    else if(low.includes('oi') || low.includes('olá')) reply = "Olá! Sou sua IA financeira.";
-                    document.getElementById('chat-history').innerHTML += `<div class="msg bot">${reply}</div>`; 
-                }, 500);
-            }
-        };
-
-        const Toast = (t, m, type) => {
-            const el = document.createElement('div'); el.className = 'toast';
-            el.style.borderLeftColor = type==='success'?'var(--up)':'var(--down)';
-            el.innerHTML = `<div><b>${t}</b><br><small>${m}</small></div>`;
-            document.getElementById('toast-container').appendChild(el);
-            setTimeout(()=>el.remove(),3000);
-        };
-
-        const Router = {
-            go: (id) => {
-                document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-                document.getElementById('view-'+id).classList.add('active');
-                document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-                const btn = document.querySelector(`.nav-item[onclick="Router.go('${id}')"]`);
-                if(btn) btn.classList.add('active');
-                if(id === 'trade') ChartEngine.chart.timeScale().fitContent();
-                if(id === 'dashboard') Logic.updateDash();
-            }
-        };
-
-        const Validation = {
-            name: (el) => {
-                if(/[^a-zA-Z\s]/.test(el.value)) { el.value = el.value.replace(/[^a-zA-Z\s]/g,''); el.nextElementSibling.style.display='block'; }
-                else el.nextElementSibling.style.display='none';
-            },
-            cpf: (el) => {
-                el.value = el.value.replace(/\D/g,'');
-                if(el.value.length < 11) el.nextElementSibling.style.display='block';
-                else el.nextElementSibling.style.display='none';
-            },
-            pass: (el) => {},
-            submit: () => document.getElementById('modal-auth').classList.add('open')
-        };
-
-        function ModalNews(t, b, c) {
-            document.getElementById('m-news-title').innerText = t;
-            document.getElementById('m-news-body').innerText = b;
-            document.getElementById('m-news-cat').innerText = c;
-            document.getElementById('modal-news').classList.add('open');
-        }
-
-        // --- BACKGROUND ---
-        const Canvas = {
-            init: () => {
-                const c = document.getElementById('bg-canvas'); const ctx = c.getContext('2d');
-                let w, h, p = [];
-                const resize = () => { w=c.width=window.innerWidth; h=c.height=window.innerHeight; };
-                window.addEventListener('resize', resize); resize();
-                for(let i=0; i<40; i++) p.push({x:Math.random()*w, y:Math.random()*h, r:Math.random()*2, dx:(Math.random()-0.5)*0.2, dy:(Math.random()-0.5)*0.2});
-                const anim = () => {
-                    ctx.clearRect(0,0,w,h); ctx.fillStyle = 'rgba(255,255,255,0.03)';
-                    p.forEach(pt => { pt.x+=pt.dx; pt.y+=pt.dy; if(pt.x<0||pt.x>w) pt.dx*=-1; if(pt.y<0||pt.y>h) pt.dy*=-1; ctx.beginPath(); ctx.arc(pt.x,pt.y,pt.r,0,Math.PI*2); ctx.fill(); });
-                    requestAnimationFrame(anim);
-                };
-                anim();
-            }
-        };
-
-        // INIT
-        window.onload = () => {
-            try {
-                Render.assets(); Render.rank(); Render.news();
-                DashCharts.init(); ChartEngine.init(); Canvas.init(); Logic.updateDash();
-            } catch(e) { console.log(e); }
-        };
-    </script>
+    <script src="app.js"></script>
 </body>
 </html>

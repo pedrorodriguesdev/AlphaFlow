@@ -1,0 +1,1547 @@
+// Chart.js is already loaded from CDN in HTML as a global variable
+
+/* =========================================
+   CORE ARCHITECTURE - AlphaFlow v8.0+ Enhanced
+   ENHANCED VERSION with Complete Feature Set
+   ========================================= */
+
+// Declare the LightweightCharts variable before using it
+const LightweightCharts = window.LightweightsCharts
+
+// --- DATA & CONFIG ---
+const Store = {
+  user: {
+    name: null,
+    email: null,
+    type: "Iniciante",
+    balance: 5000.0,
+    portfolio: {},
+    history: [],
+    sessionStart: Date.now(),
+    refills: { count: 0, date: null },
+  },
+  assets: [],
+  news: [],
+  marketInterval: null,
+  charts: {
+    pro: null,
+    proSeries: null,
+    modal: null,
+    modalSeries: null,
+    dashEvo: null,
+    dashAlloc: null,
+  },
+  sessionWarningShown: false,
+}
+
+// --- INITIALIZATION ---
+const App = {
+  async init() {
+    console.log("System Boot: AlphaFlow Ultimate v8.0+ Enhanced...")
+
+    // 1. Load Mock Data
+    await App.loadMockData()
+
+    // 2. Load Storage
+    const savedUser = localStorage.getItem("alphaflow_user")
+    if (savedUser) Store.user = JSON.parse(savedUser)
+
+    // 3. Security Check (10 min rule)
+    App.checkSession()
+    setInterval(App.checkSession, 60000)
+
+    // 4. Init Modules
+    UI.init()
+    Market.init()
+    Charts.init()
+    AI.init()
+    News.init()
+    Background.init()
+
+    // 5. Restore View
+    Dashboard.update()
+    Router.go("dashboard")
+  },
+
+  async loadMockData() {
+    try {
+      const assetsRes = await fetch("data/mock-assets.json")
+      const newsRes = await fetch("data/news.json")
+      Store.assets = await assetsRes.json()
+      Store.news = await newsRes.json()
+    } catch (e) {
+      console.log("Loading embedded mock data...")
+      Store.assets = AppData.mockAssets
+      Store.news = AppData.mockNews
+    }
+  },
+
+  checkSession() {
+    const now = Date.now()
+    const diff = (now - Store.user.sessionStart) / 1000 / 60 // mins
+
+    if (diff > 10 && !Store.user.email && !Store.sessionWarningShown) {
+      document.getElementById("login-overlay").classList.remove("hidden")
+      Store.sessionWarningShown = true
+    }
+  },
+
+  toggleBg(active) {
+    const c = document.getElementById("bg-canvas")
+    c.style.display = active ? "block" : "none"
+  },
+
+  save() {
+    localStorage.setItem("alphaflow_user", JSON.stringify(Store.user))
+  },
+}
+
+// --- AUTHENTICATION ---
+const Auth = {
+  login() {
+    const email = document.getElementById("auth-email").value.trim()
+    const pass = document.getElementById("auth-pass").value
+
+    if (Auth.validateEmail(email) && pass.length > 3) {
+      Store.user.email = email
+      Store.user.name = email.split("@")[0].charAt(0).toUpperCase() + email.split("@")[0].slice(1)
+      Store.user.sessionStart = Date.now()
+      Store.sessionWarningShown = false
+      App.save()
+      document.getElementById("login-overlay").classList.add("hidden")
+      Toast.show("Login realizado com sucesso!", "success")
+      UI.updateSidebar()
+    } else {
+      Toast.show("Email inválido (use @gmail/@hotmail) ou senha curta.", "error")
+    }
+  },
+
+  validateEmail(email) {
+    return /^[a-zA-Z0-9._%+-]+@(gmail|hotmail)+\.com$/.test(email)
+  },
+}
+
+// --- ROUTING ---
+const Router = {
+  go(viewId) {
+    document.querySelectorAll(".view").forEach((v) => v.classList.remove("active"))
+    document.getElementById("view-" + viewId).classList.add("active")
+
+    document.querySelectorAll(".nav-item").forEach((n) => n.classList.remove("active"))
+    const els = document.querySelectorAll(".nav-item")
+    const map = { dashboard: 0, "trade-pro": 1, market: 2, news: 3, ai: 4, settings: 5 }
+    if (map[viewId] !== undefined) els[map[viewId]].classList.add("active")
+
+    if (viewId === "trade-pro") {
+      setTimeout(() => {
+        const container = document.getElementById("pro-chart-container")
+        if (container && Store.charts.pro) {
+          const width = container.clientWidth
+          const height = container.clientHeight || 400
+          if (width > 0 && height > 0) {
+            Store.charts.pro.applyOptions({ width, height })
+            TradePro.generateHistory(TradePro.activeId)
+          }
+        }
+      }, 100)
+    }
+
+    if (viewId === "market") {
+      Market.renderList()
+    }
+
+    if (viewId === "news") {
+      News.render(Store.news)
+    }
+
+    if (viewId === "ai") {
+      const feed = document.getElementById("chat-feed")
+      if (feed) feed.scrollTop = feed.scrollHeight
+    }
+
+    if (viewId === "dashboard") {
+      Dashboard.update()
+    }
+  },
+}
+
+// --- MARKET ENGINE ---
+const Market = {
+  init() {
+    Store.assets.forEach((a) => {
+      a.currentPrice = a.basePrice
+      a.change24h = (Math.random() * 10 - 5).toFixed(2)
+    })
+    Market.renderList()
+
+    Store.marketInterval = setInterval(() => {
+      Store.assets.forEach((a) => {
+        const move = (Math.random() - 0.5) * a.volatility
+        a.currentPrice = a.currentPrice * (1 + move)
+        a.change24h = (((a.currentPrice - a.basePrice) / a.basePrice) * 100).toFixed(2)
+      })
+
+      Market.updateUI()
+      TradePro.tick()
+      Dashboard.update()
+    }, 3000)
+  },
+
+  filter(term) {
+    Market.renderList(term.toLowerCase())
+  },
+
+  renderList(filter = "") {
+    const grid = document.getElementById("market-list")
+    grid.innerHTML = Store.assets
+      .filter((a) => a.name.toLowerCase().includes(filter) || a.ticker.toLowerCase().includes(filter))
+      .map(
+        (a) => `
+                <div class="card asset-card" onclick="UI.openInvestModal('${a.id}')">
+                    <div>
+                        <div class="mono" style="font-weight:700">${a.ticker}</div>
+                        <small class="text-muted">${a.name}</small>
+                    </div>
+                    <div style="text-align:right">
+                        <div class="mono price-live" id="price-${a.id}">R$ ${a.currentPrice.toFixed(2)}</div>
+                        <small class="${a.change24h >= 0 ? "text-up" : "text-down"}">${a.change24h >= 0 ? "+" : ""}${a.change24h}%</small>
+                    </div>
+                    <button class="btn btn-sm btn-primary">Investir</button>
+                </div>
+            `,
+      )
+      .join("")
+  },
+
+  updateUI() {
+    if (document.getElementById("view-market").classList.contains("active")) {
+      Store.assets.forEach((a) => {
+        const el = document.getElementById(`price-${a.id}`)
+        if (el) el.innerText = `R$ ${a.currentPrice.toFixed(2)}`
+      })
+    }
+    document.getElementById("header-balance").innerText = Format.currency(Store.user.balance)
+  },
+}
+
+// --- CHARTING ENGINE ---
+const Charts = {
+  init() {
+    const ctxEvo = document.getElementById("chart-evolution").getContext("2d")
+    Store.charts.dashEvo = new window.Chart(ctxEvo, {
+      type: "line",
+      data: {
+        labels: [],
+        datasets: [
+          {
+            label: "Patrimônio",
+            data: [],
+            borderColor: "#00f2ff",
+            backgroundColor: "rgba(0, 242, 255, 0.1)",
+            fill: true,
+            tension: 0.4,
+            pointRadius: 0,
+            borderWidth: 2,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { display: false },
+          y: { grid: { color: "rgba(60, 75, 100, 0.2)" }, ticks: { color: "#8a9ab8" } },
+        },
+      },
+    })
+
+    const ctxAlloc = document.getElementById("chart-allocation").getContext("2d")
+    Store.charts.dashAlloc = new window.Chart(ctxAlloc, {
+      type: "doughnut",
+      data: {
+        labels: [],
+        datasets: [
+          {
+            data: [],
+            backgroundColor: ["#00f2ff", "#0066ff", "#00e396", "#ff0055", "#ffb700", "#ff6b35"],
+            borderWidth: 0,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { position: "right", labels: { color: "#fff" } },
+        },
+      },
+    })
+
+    // Lightweight Charts for Trade Pro
+    const proContainer = document.getElementById("pro-chart-container")
+    if (proContainer) {
+      Store.charts.pro = LightweightCharts.createChart(proContainer, {
+        layout: { background: { color: "transparent" }, textColor: "#8a9ab8" },
+        grid: { vertLines: { color: "rgba(255, 255, 255, 0.05)" }, horzLines: { color: "rgba(255, 255, 255, 0.05)" } },
+        timeScale: { timeVisible: true, secondsVisible: true },
+      })
+      Store.charts.proSeries = Store.charts.pro.addCandlestickSeries({
+        upColor: "#00e396",
+        downColor: "#ff0055",
+        borderVisible: false,
+        wickVisible: true,
+      })
+    }
+  },
+}
+
+// --- TRADING LOGIC ---
+const Trade = {
+  activeAssetId: null,
+
+  adjQty(delta) {
+    const inp = document.getElementById("m-qty")
+    let val = Number.parseFloat(inp.value) + delta
+    if (val < 0.1) val = 0.1
+    inp.value = val.toFixed(1)
+  },
+
+  execute(type, isModal = false) {
+    const id = isModal ? Trade.activeAssetId : TradePro.activeId
+    const asset = Store.assets.find((a) => a.id === id)
+    if (!asset) return
+
+    const qtyEl = isModal ? document.getElementById("m-qty") : document.getElementById("pro-qty")
+    const qty = Number.parseFloat(qtyEl.value)
+    const price = asset.currentPrice
+    const total = price * qty
+
+    if (type === "buy") {
+      if (Store.user.balance >= total) {
+        Store.user.balance -= total
+        Store.user.portfolio[asset.ticker] = (Store.user.portfolio[asset.ticker] || 0) + qty
+        Store.user.history.push({
+          type: "buy",
+          ticker: asset.ticker,
+          qty: qty,
+          price: price,
+          time: new Date().toISOString(),
+        })
+        Toast.show(`Compra de ${qty} ${asset.ticker} realizada!`, "success")
+      } else {
+        Toast.show("Saldo insuficiente.", "error")
+        return
+      }
+    } else {
+      const currentQty = Store.user.portfolio[asset.ticker] || 0
+      if (currentQty >= qty) {
+        Store.user.balance += total
+        Store.user.portfolio[asset.ticker] -= qty
+        if (Store.user.portfolio[asset.ticker] <= 0.0001) delete Store.user.portfolio[asset.ticker]
+        Store.user.history.push({
+          type: "sell",
+          ticker: asset.ticker,
+          qty: qty,
+          price: price,
+          time: new Date().toISOString(),
+        })
+        Toast.show(`Venda de ${qty} ${asset.ticker} realizada!`, "success")
+      } else {
+        Toast.show("Você não possui quantidade suficiente.", "error")
+        return
+      }
+    }
+
+    App.save()
+    Dashboard.update()
+    if (isModal) UI.updateModal(id)
+    else TradePro.updatePanel()
+  },
+}
+
+// --- TRADE PRO MODULE ---
+const TradePro = {
+  activeId: "btc",
+  currentTimeFrame: "1m",
+  activeIndicators: {},
+  chartType: "candlestick", // add chart type: candlestick, line, area
+  trendLines: [],
+
+  setTF(tf) {
+    TradePro.currentTimeFrame = tf
+    document.querySelectorAll(".tf-btn").forEach((b) => b.classList.remove("active"))
+    event.target.classList.add("active")
+    TradePro.generateHistory(TradePro.activeId)
+  },
+
+  setChartType(type) {
+    TradePro.chartType = type
+    if (Store.charts.proSeries) Store.charts.proSeries.destroy?.()
+    if (type === "candlestick") {
+      Store.charts.proSeries = Store.charts.pro.addCandlestickSeries({
+        upColor: "#00e396",
+        downColor: "#ff0055",
+        borderVisible: false,
+        wickVisible: true,
+      })
+    } else if (type === "line") {
+      Store.charts.proSeries = Store.charts.pro.addLineSeries({
+        color: "#00f2ff",
+        lineWidth: 2,
+      })
+    } else if (type === "area") {
+      Store.charts.proSeries = Store.charts.pro.addAreaSeries({
+        lineColor: "#00f2ff",
+        topColor: "rgba(0, 242, 255, 0.3)",
+        bottomColor: "rgba(0, 0, 0, 0)",
+      })
+    }
+    TradePro.generateHistory(TradePro.activeId)
+  },
+
+  toggleInd(name) {
+    TradePro.activeIndicators[name] = !TradePro.activeIndicators[name]
+    console.log("Indicator " + name + ": " + (TradePro.activeIndicators[name] ? "ON" : "OFF"))
+    TradePro.renderIndicators()
+  },
+
+  renderIndicators() {
+    if (TradePro.activeIndicators.sma) console.log("[v0] SMA 20/50/200 enabled")
+    if (TradePro.activeIndicators.ema) console.log("[v0] EMA 12/26 enabled")
+    if (TradePro.activeIndicators.rsi) console.log("[v0] RSI indicator enabled")
+    if (TradePro.activeIndicators.macd) console.log("[v0] MACD enabled")
+    if (TradePro.activeIndicators.bb) console.log("[v0] Bollinger Bands enabled")
+    if (TradePro.activeIndicators.vol) console.log("[v0] Volume enabled")
+  },
+
+  tick() {
+    if (!Store.charts.proSeries) return
+    const asset = Store.assets.find((a) => a.id === TradePro.activeId)
+    const t = Math.floor(Date.now() / 1000)
+
+    if (TradePro.chartType === "candlestick") {
+      const open = asset.currentPrice * (1 + (Math.random() - 0.5) * 0.002)
+      const close = asset.currentPrice
+      const high = Math.max(open, close) * 1.001
+      const low = Math.min(open, close) * 0.999
+      Store.charts.proSeries.update({ time: t, open, high, low, close })
+    } else {
+      Store.charts.proSeries.update({ time: t, value: asset.currentPrice })
+    }
+    TradePro.updatePanel()
+  },
+
+  changeAsset(id) {
+    TradePro.activeId = id
+    TradePro.generateHistory(id)
+    TradePro.updatePanel()
+  },
+
+  generateHistory(id) {
+    const asset = Store.assets.find((a) => a.id === id)
+    if (!asset || !Store.charts.proSeries) return
+
+    const data = []
+    let price = asset.currentPrice * 0.9
+    const t = Math.floor(Date.now() / 1000) - 100 * 60
+
+    for (let i = 0; i < 100; i++) {
+      if (TradePro.chartType === "candlestick") {
+        const open = price
+        const close = price * (1 + (Math.random() - 0.5) * asset.volatility)
+        const high = Math.max(open, close) + Math.random()
+        const low = Math.min(open, close) - Math.random()
+        data.push({ time: t + i * 60, open, high, low, close })
+        price = close
+      } else {
+        price = price * (1 + (Math.random() - 0.5) * asset.volatility)
+        data.push({ time: t + i * 60, value: price })
+      }
+    }
+    Store.charts.proSeries.setData(data)
+  },
+
+  updatePanel() {
+    if (!document.getElementById("view-trade-pro").classList.contains("active")) return
+    const asset = Store.assets.find((a) => a.id === TradePro.activeId)
+    if (!asset) return
+
+    document.getElementById("pro-price").innerText = Format.currency(asset.currentPrice)
+    document.getElementById("pro-wallet").innerText = Format.currency(Store.user.balance)
+
+    const qty = Number.parseFloat(document.getElementById("pro-qty").value) || 0
+    document.getElementById("pro-total").innerText = Format.currency(asset.currentPrice * qty)
+  },
+
+  resize() {
+    const container = document.getElementById("pro-chart-container")
+    if (Store.charts.pro && container) {
+      Store.charts.pro.applyOptions({ width: container.clientWidth, height: container.clientHeight })
+    }
+  },
+}
+
+// --- DASHBOARD MODULE ---
+const Dashboard = {
+  update() {
+    let invested = 0
+    Object.keys(Store.user.portfolio).forEach((ticker) => {
+      const asset = Store.assets.find((a) => a.ticker === ticker)
+      if (asset) invested += Store.user.portfolio[ticker] * asset.currentPrice
+    })
+    const equity = Store.user.balance + invested
+
+    document.getElementById("dash-equity").innerText = Format.currency(equity)
+    document.getElementById("dash-cash").innerText = Format.currency(Store.user.balance)
+    const pnl = equity - 5000
+    const pnlEl = document.getElementById("dash-pnl")
+    pnlEl.innerText = Format.currency(pnl)
+    pnlEl.className = `mono ${pnl >= 0 ? "text-up" : "text-down"}`
+    document.getElementById("dash-positions").innerText = Object.keys(Store.user.portfolio).length
+
+    if (Store.charts.dashEvo) {
+      const lbls = Store.charts.dashEvo.data.labels
+      const data = Store.charts.dashEvo.data.datasets[0].data
+
+      lbls.push(new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }))
+      data.push(equity)
+      if (lbls.length > 20) {
+        lbls.shift()
+        data.shift()
+      }
+      Store.charts.dashEvo.update()
+    }
+
+    if (Store.charts.dashAlloc) {
+      const port = Store.user.portfolio
+      const labels = ["Caixa", ...Object.keys(port)]
+      const values = [
+        Store.user.balance,
+        ...Object.keys(port).map((t) => {
+          const a = Store.assets.find((x) => x.ticker === t)
+          return port[t] * (a ? a.currentPrice : 0)
+        }),
+      ]
+
+      Store.charts.dashAlloc.data.labels = labels
+      Store.charts.dashAlloc.data.datasets[0].data = values
+      Store.charts.dashAlloc.update()
+    }
+  },
+}
+
+// --- UI & INTERACTIONS ---
+const UI = {
+  init() {
+    const sel = document.getElementById("pro-asset-select")
+    sel.innerHTML = Store.assets.map((a) => `<option value="${a.id}">${a.ticker} - ${a.name}</option>`).join("")
+    TradePro.changeAsset("btc")
+
+    const nameInput = document.querySelector(".validate-name")
+    if (nameInput) {
+      nameInput.addEventListener("input", (e) => {
+        e.target.value = e.target.value.replace(/[^a-zA-Z\s]/g, "")
+      })
+      nameInput.addEventListener("change", (e) => {
+        if (!Store.user.email) {
+          document.getElementById("login-overlay").classList.remove("hidden")
+          Toast.show("Você precisa estar logado para editar o perfil", "error")
+          e.target.value = ""
+        }
+      })
+    }
+
+    document.getElementById("set-name").value = Store.user.name || ""
+    document.getElementById("set-email").value = Store.user.email || ""
+    document.getElementById("set-type").value = Store.user.type
+    UI.updateSidebar()
+  },
+
+  updateSidebar() {
+    if (Store.user.name) {
+      document.getElementById("sidebar-user").innerText = Store.user.name
+      document.getElementById("sidebar-type").innerText = Store.user.type
+    }
+  },
+
+  openInvestModal(id) {
+    Trade.activeAssetId = id
+    const asset = Store.assets.find((a) => a.id === id)
+
+    document.getElementById("m-asset-name").innerText = `${asset.name} (${asset.ticker})`
+    document.getElementById("modal-invest").classList.remove("hidden")
+    UI.updateModal(id)
+
+    setTimeout(() => {
+      const container = document.getElementById("modal-chart-container")
+      container.innerHTML = ""
+      Store.charts.modal = LightweightCharts.createChart(container, {
+        width: container.clientWidth,
+        height: 250,
+        layout: { background: { color: "transparent" }, textColor: "#fff" },
+        grid: { vertLines: { color: "rgba(255,255,255,0.05)" }, horzLines: { color: "rgba(255,255,255,0.05)" } },
+        timeScale: { timeVisible: true },
+      })
+      Store.charts.modalSeries = Store.charts.modal.addAreaSeries({
+        lineColor: "#00f2ff",
+        topColor: "rgba(0, 242, 255, 0.4)",
+        bottomColor: "rgba(0,0,0,0)",
+      })
+
+      const data = []
+      let p = asset.currentPrice * 0.95
+      const t = Math.floor(Date.now() / 1000) - 3600
+      for (let i = 0; i < 60; i++) {
+        p = p * (1 + (Math.random() - 0.5) * 0.01)
+        data.push({ time: t + i * 60, value: p })
+      }
+      Store.charts.modalSeries.setData(data)
+      Store.charts.modal.timeScale().fitContent()
+    }, 100)
+  },
+
+  updateModal(id) {
+    const asset = Store.assets.find((a) => a.id === id)
+    if (!asset) return
+    document.getElementById("m-price").innerText = Format.currency(asset.currentPrice)
+    document.getElementById("m-wallet").innerText = Format.currency(Store.user.balance)
+    document.getElementById("m-var").innerText = asset.change24h + "%"
+  },
+
+  closeModal(id) {
+    document.getElementById(id).classList.add("hidden")
+  },
+}
+
+// --- SETTINGS ---
+const Settings = {
+  saveProfile() {
+    if (!Store.user.email) {
+      document.getElementById("login-overlay").classList.remove("hidden")
+      Toast.show("Faça login para salvar seu perfil", "error")
+      return
+    }
+    Store.user.name = document.getElementById("set-name").value || "Investidor"
+    Store.user.type = document.getElementById("set-type").value
+    App.save()
+    Toast.show("Perfil atualizado com sucesso.", "success")
+    UI.updateSidebar()
+  },
+
+  addFunds() {
+    if (!Store.user.email) {
+      document.getElementById("login-overlay").classList.remove("hidden")
+      Toast.show("Faça login para adicionar saldo", "error")
+      return
+    }
+
+    const today = new Date().toDateString()
+    if (Store.user.refills.date !== today) {
+      Store.user.refills = { count: 0, date: today }
+    }
+
+    if (Store.user.refills.count < 3) {
+      Store.user.balance += 10000
+      Store.user.refills.count++
+      App.save()
+      Dashboard.update()
+      Market.updateUI()
+      document.getElementById("refill-counter").innerText = `Restam ${3 - Store.user.refills.count} usos hoje.`
+      Toast.show("R$ 10.000,00 adicionados!", "success")
+    } else {
+      Toast.show("Limite diário (3x) atingido.", "error")
+    }
+  },
+}
+
+// --- AI ADVISOR MODULE (ENHANCED) ---
+const AI = {
+  knowledge: [
+    {
+      keys: ["oi", "ola", "ei", "olá"],
+      resp: "Olá! Sou o AlphaBot, seu assistente financeiro avançado. Como posso ajudar você hoje?",
+    },
+    {
+      keys: ["investir", "comecar", "como"],
+      resp: "Para começar a investir:<br>1. Explore o <b>Mercado Global</b><br>2. Escolha um ativo (Ações, Cripto ou Commodities)<br>3. Clique em 'Investir'<br>4. Defina a quantidade e compre<br>5. Monitore no Dashboard",
+    },
+    {
+      keys: ["bitcoin", "btc", "cripto"],
+      resp: "<b>Bitcoin (BTC)</b> é a maior criptomoeda do mundo. Criada em 2009, funciona como reserva de valor digital descentralizada. Vantagens: sem intermediários, segurança. Desvantagens: volatilidade alta, pode cair 50% rapidamente.",
+    },
+    {
+      keys: ["risco", "perder", "seguro"],
+      resp: "Todo investimento tem risco. <b>Ações</b>: risco médio, bom para longo prazo. <b>Criptos</b>: risco alto, pode perder tudo. <b>Commodities</b>: risco médio. NUNCA invista dinheiro que vai precisar!",
+    },
+    {
+      keys: ["analise", "grafico", "vela", "candle"],
+      resp: "No <b>Trade Pro</b>:<br>- Use <b>SMA/EMA</b> para ver tendências<br>- <b>RSI</b> mostra sobrecompra/sobrevenda<br>- <b>MACD</b> confirma mudanças<br>- <b>Bollinger Bands</b> mostra volatilidade",
+    },
+    {
+      keys: ["sma", "media", "movel"],
+      resp: "<b>Média Móvel Simples (SMA)</b> calcula o preço médio dos últimos N candles. SMA 20: tendência curta. SMA 50: tendência média. SMA 200: tendência longa. Quando preço fica acima, mercado está em alta.",
+    },
+    {
+      keys: ["ema", "exponencial"],
+      resp: "<b>EMA (Média Móvel Exponencial)</b> é como SMA mas dá mais peso aos preços recentes. Reage mais rápido a mudanças. Traders usam EMA 12 e 26 para identificar mudanças rápidas de tendência.",
+    },
+    {
+      keys: ["rsi", "indice"],
+      resp: "<b>RSI (Relative Strength Index)</b> mede força de movimento. Escala 0-100. Acima de 70: ativo sobrecomprado (vender). Abaixo de 30: ativo sobrevendido (comprar). Muito útil para identificar reversões.",
+    },
+    {
+      keys: ["macd"],
+      resp: "<b>MACD (Moving Average Convergence Divergence)</b> combina 2 EMAs. Quando MACD cruza a linha de sinal para cima: sinal de compra. Para baixo: sinal de venda. Um dos indicadores mais populares.",
+    },
+    {
+      keys: ["bollinger", "volatilidade", "bb"],
+      resp: "<b>Bandas de Bollinger</b> mostram volatilidade. Preço toca banda superior: sobrecomprado. Toca banda inferior: sobrevendido. Bandas estreitas: baixa volatilidade (futura explosão). Bandas largas: alta volatilidade.",
+    },
+    {
+      keys: ["suporte", "resistencia"],
+      resp: "<b>Suporte</b>: nível onde preço tende a parar de cair (compras). <b>Resistência</b>: nível onde preço para de subir (vendas). Quebra de suporte = possível queda. Quebra de resistência = possível alta.",
+    },
+    {
+      keys: ["tendencia", "trend", "alta", "baixa"],
+      resp: "<b>Tendência de ALTA</b>: mínimas e máximas crescentes. <b>Tendência de BAIXA</b>: mínimas e máximas decrescentes. <b>Lateral</b>: sem direção clara. Melhor tradear a favor da tendência principal.",
+    },
+    {
+      keys: ["volume"],
+      resp: "<b>Volume</b> é quantidade de contratos negociados. Alto volume + preço subindo = movimento forte. Alto volume + preço caindo = venda pesada. Baixo volume = movimento fraco.",
+    },
+    {
+      keys: ["divergencia"],
+      resp: "<b>Divergência</b> ocorre quando preço faz nova máxima mas indicador não acompanha. Sinal de possível reversão. Muito útil com RSI e MACD para confirmar topos e fundos.",
+    },
+    {
+      keys: ["acao", "stock", "empresa"],
+      resp: "<b>Ações</b> representam propriedade em uma empresa. Ao comprar ação, você vira sócio. Ganhos com dividendos ou valorização. Menos voláteis que criptos. Bom para investimento longo prazo.",
+    },
+    {
+      keys: ["dividendo"],
+      resp: "<b>Dividendo</b> é lucro que empresa distribui aos acionistas. Ações boas pagam 4-8% ao ano em dividendos. Sem imposto até 20 mil/mês. Forma passiva de ganho.",
+    },
+    {
+      keys: ["mercado", "bolsa"],
+      resp: "<b>Bolsa de Valores</b> é local (digital) onde ações são negociadas. Maior bolsa: NYSE (New York). Brasil: B3 (Brasil Bolsa Balcão). Horário: 9:30-16:00 em dias úteis.",
+    },
+    {
+      keys: ["short", "venda", "descoberto"],
+      resp: "<b>Venda a Descoberto (SHORT)</b> é apostar na queda. Você toma emprestado o ativo e vende. Se preço cai, compra de volta mais barato. Risco: preço sobe infinitamente.",
+    },
+    {
+      keys: ["call", "put", "opcao"],
+      resp: "<b>Opções</b> são contratos de direito (não obrigação) de comprar/vender. <b>CALL</b>: direito de comprar (alta). <b>PUT</b>: direito de vender (baixa). Alavanca até 100x.",
+    },
+    {
+      keys: ["alavancagem", "leverage"],
+      resp: "<b>Alavancagem</b> é usar dinheiro emprestado para ampliar ganhos. 2x leverage: dobrando. Problema: perdas também dobram. Crypto permite até 125x. Cuidado: liquidação instantânea.",
+    },
+    {
+      keys: ["ethereum", "eth", "smart", "contrato"],
+      resp: "<b>Ethereum (ETH)</b> é blockchain programável. Permite <b>Smart Contracts</b> (contratos automáticos). Plataforma para DeFi, NFTs, tokens. Segunda maior cripto do mundo.",
+    },
+    {
+      keys: ["defi", "descentralizado"],
+      resp: "<b>DeFi (Finanças Descentralizadas)</b> oferece serviços financeiros sem banco. Empréstimos, trocas, rendimentos. Rendimentos de 5-50% ao ano. Risco: contratos podem ter bugs.",
+    },
+    {
+      keys: ["nft", "token"],
+      resp: "<b>NFT</b> é token não-fungível (único). Representa propriedade digital de arte, colecionáveis. <b>Criptomoeda</b> é fungível (intercambiável). Mercado NFT depende de hype.",
+    },
+    {
+      keys: ["blockchain"],
+      resp: "<b>Blockchain</b> é livro-razão digital distribuído. Cada transação é um bloco. Rede valida antes de adicionar. Imutável e descentralizado. Base de todas as criptos.",
+    },
+    {
+      keys: ["mineracao", "mining"],
+      resp: "<b>Mineração</b> é validar transações em blockchain. Mineradores resolvem puzzle matemático. Recompensados com criptos novos. Bitcoin: mineração a cada 10 minutos.",
+    },
+    {
+      keys: ["wallet", "carteira"],
+      resp: "<b>Wallet (Carteira)</b> guarda suas chaves privadas. <b>Chave privada</b>: acesso ao seu dinheiro. NUNCA compartilhe! <b>Chave pública</b>: seu endereço. Para receber pagamentos.",
+    },
+    {
+      keys: ["exchange", "corretora"],
+      resp: "<b>Exchange</b> é plataforma para trocar criptos. Principais: Binance, Kraken, Coinbase. Armazena seus criptos na conta. Mais fácil mas menos seguro que wallet própria.",
+    },
+    {
+      keys: ["fork"],
+      resp: "<b>Fork</b> é divisão do blockchain. Hard fork: mudança incompatível (novo token). Soft fork: compatível para trás. Ethereum Classic = fork do Ethereum após hack.",
+    },
+    {
+      keys: ["staking"],
+      resp: "<b>Staking</b> é travar cripto em blockchain para validar transações. Você recebe rendimento. Ethereum: 5-8% ao ano. Menos risco que trading.",
+    },
+    {
+      keys: ["mercado", "touro", "urso"],
+      resp: "<b>Bull Market</b> (Mercado de Touro): subidas contínuas, otimismo. <b>Bear Market</b> (Mercado de Urso): quedas contínuas, pessimismo. Ciclos duram meses/anos.",
+    },
+    {
+      keys: ["crash", "corracao", "queda"],
+      resp: "<b>Correção</b> é queda de 10-20%. <b>Crash</b> é queda acima de 20%. Bitcoin já caiu 80% em 2018. Criptos são cíclicas: alta 4 anos, queda 2 anos.",
+    },
+    {
+      keys: ["halving", "bitcoin"],
+      resp: "<b>Halving do Bitcoin</b> reduz recompensa mineração pela metade a cada 4 anos. Reduz oferta. Aumenta raridade. Historicamente causa alta pós-halving.",
+    },
+    {
+      keys: ["ciclo", "halving"],
+      resp: "<b>Ciclo Bitcoin</b>: 1) Halving 2) Aceleração de 12-18 meses 3) Topo especulativo 4) Queda de 80% 5) Consolidação 2 anos. Padrão desde 2012.",
+    },
+    {
+      keys: ["taxa", "fee", "comissao"],
+      resp: "<b>Taxas de Transação</b> variam. Bitcoin: $10-50 por transação (rápido). Ethereum: $2-20 (depende rede). Layer 2: $0,01 (mais barato). Sempre verifique antes de enviar.",
+    },
+    {
+      keys: ["airdrop"],
+      resp: "<b>Airdrop</b> é distribuição gratuita de tokens. Projetos usam para promover. Você recebe tokens de graça por estar em comunidade. Ótimo para ganhar passivamente.",
+    },
+    {
+      keys: ["gráfico", "candela", "barra"],
+      resp: "No <b>Trade Pro</b> você escolhe tipo de gráfico:<br>- <b>Linha</b>: simples, tendências<br>- <b>Área</b>: volume visível<br>- <b>Vela</b>: melhor análise técnica (abertura, máxima, mínima, fechamento)",
+    },
+    {
+      keys: ["timeframe", "periodo", "vela"],
+      resp: "<b>Timeframes</b> disponíveis no Trade Pro:<br>- <b>1m</b>: scalping rápido<br>- <b>5m/15m</b>: day trading<br>- <b>1h/4h</b>: swing trading<br>- <b>1D</b>: investimento longo prazo",
+    },
+    // Additional 20+ responses below current knowledge base
+    {
+      keys: ["como", "comeco", "iniciante"],
+      resp: "<b>Guia Completo para Iniciantes</b><br>1. Entenda o básico (ações, criptos, commodities)<br>2. Estude análise técnica<br>3. Abra conta em corretora<br>4. Comece com pequenos valores<br>5. Monitore 1-2 ativos apenas<br>6. Mantenha disciplina emocional<br>7. Estude seus erros<br>8. Aumente exposição gradualmente",
+    },
+    {
+      keys: ["risco", "carteira", "diversificacao"],
+      resp: "<b>Diversificação Inteligente</b><br>- 40% Ações de qualidade<br>- 20% Criptomoedas (Bitcoin + Ethereum)<br>- 15% Commodities (ouro, petróleo)<br>- 15% Renda Fixa (títulos)<br>- 10% Emergentes (especulativo)<br><br>Ajuste % conforme seu perfil.",
+    },
+    {
+      keys: ["ciclo", "mercado", "padrão"],
+      resp: "<b>Ciclos do Mercado</b><br>1. ACUMULAÇÃO: Preços baixos, poucos comprando (2-3 anos)<br>2. ALTA: Subidas rápidas, otimismo contagiante (1-2 anos)<br>3. DISTRIBUIÇÃO: Topos, queda inicial de força<br>4. QUEDA: Pânico, vendas (1-2 anos)<br>Repetição cíclica. Aproveite cada fase.",
+    },
+    {
+      keys: ["vela", "japones", "pattern"],
+      resp: "<b>Padrões de Velas Importantes</b><br><b>Alta:</b> Morning Star, Engulfing Bull, Three White Soldiers<br><b>Baixa:</b> Evening Star, Engulfing Bear, Three Black Crows<br><b>Indecisão:</b> Hammer, Spinning Top, Doji<br>Combine com volume e contexto.",
+    },
+    {
+      keys: ["suporte", "resistencia", "nivel"],
+      resp: "<b>Suporte e Resistência Dinâmica</b><br>- Identifique topos anteriores (resistência)<br>- Identifique fundos anteriores (suporte)<br>- Quanto mais testes, mais forte o nível<br>- Quebra de suporte = novo nível é resistência<br>- Use para stop loss e entry points",
+    },
+    {
+      keys: ["momentum", "força", "velocidade"],
+      resp: "<b>Momentum Explica Tudo</b><br>Alto momentum + suporte = compra (alta probabilidade)<br>Alto momentum + resistência = venda<br>Baixo momentum = consolidação<br>Divergência momentum = reversão iminente<br>Não trade contra momentum forte.",
+    },
+    {
+      keys: ["scalping", "day", "swing"],
+      resp: "<b>Estilos de Trading</b><br><b>Scalping:</b> 5-30min, ganha 0.1-0.5% por trade, 10-50 trades/dia<br><b>Day Trading:</b> 1h-1d, ganha 1-5%, 1-5 trades/dia<br><b>Swing:</b> Dias/semanas, ganha 5-20%, 1-2 trades/semana<br><b>Position:</b> Meses/anos, ganha 50%+<br>Escolha conforme disponibilidade.",
+    },
+    {
+      keys: ["emocao", "psicologia", "medo", "ganancia"],
+      resp: "<b>Psicologia do Trading</b><br>1. MEDO mata mais trades que perdas reais (saia cedo)<br>2. GANÂNCIA causa over-trading (saia no alvo)<br>3. ESPERANÇA mantém perdas abertas (tenha stop loss)<br>4. ORGULHO nega realidade (seja humilde)<br><b>Solução:</b> Tenha plano, siga-o mecanicamente.",
+    },
+    {
+      keys: ["lucro", "ganho", "meta"],
+      resp: "<b>Sistema de Ganhos Sustentável</b><br>- Meta realista: 1-3% ao mês = 12-36% ao ano<br>- Para cada 10 trades, 6 ganham e 4 perdem<br>- Ganho médio > perda média (razão risco/retorno)<br>- Acumule pequenos ganhos (juros compostos)<br>- Paciência > velocidade. Sempre.",
+    },
+    {
+      keys: ["stop", "loss", "proteção"],
+      resp: "<b>Stop Loss é Seu Seguro</b><br>- SEMPRE use stop loss (sem exceção)<br>- Coloque abaixo de suporte (não em números redondos)<br>- Risco máximo por trade: 1-2% do capital<br>- Exemplo: Capital R$10k, risco R$100-200 por trade<br>- Emocional? Use stop automático.",
+    },
+    {
+      keys: ["take", "profit", "realizar"],
+      resp: "<b>Take Profit Estratégico</b><br>- Metas: 1:1 (risco=ganho), 1:2 (ganho=2x risco), 1:3 (melhor)<br>- Partialize: saia com 50% em 1:1, deixe 50% correr<br>- Acompanhe com trailing stop (lucra mais)<br>- Não seja guloso: ganho seguro > especulação",
+    },
+    {
+      keys: ["posição", "tamanho", "lote"],
+      resp: "<b>Cálculo Correto do Tamanho da Posição</b><br>Posição = (Capital × Risco%) / Distância Stop<br>Exemplo: Capital R$50k, risco 2%, stop 10 pontos no BTC<br>= (50000 × 0.02) / 10 = 100 satoshis<br>Ajuste sempre conforme sua conta.",
+    },
+    {
+      keys: ["liquidez", "volume"],
+      resp: "<b>Liquidez é Vida no Trading</b><br>- Alto volume = entradas/saídas rápidas e baratas<br>- Baixo volume = slippage (pior preço do esperado)<br>- Evite criptos com volume < R$1M/dia<br>- Não force trades ilíquidos (vai se arrepender)<br>- Prefira ativos populares (BTC, ETH, AAPL, etc).",
+    },
+    {
+      keys: ["noticia", "evento", "economia"],
+      resp: "<b>Trading de Notícias e Eventos</b><br>- Fed decision, CPI, earnings = volatilidade alta<br>- Antes: consolidação apertada<br>- Depois: movimento explosivo (direction imprevisível)<br>- Estratégia: espere pelo movimento confirmar<br>- Não entre contra a notícia, entre acompanhando.",
+    },
+    {
+      keys: ["correlação", "bitcoin", "altcoins"],
+      resp: "<b>Correlação Entre Ativos</b><br>- BTC e altcoins: 0.9 (movem juntas)<br>- Ações e ouro: 0.1 (independentes)<br>- Petróleo e dólar: -0.6 (inverso)<br>- Use correlação para evitar risco sistemático<br>- Não coloque tudo em criptos (não é diversificação).",
+    },
+    {
+      keys: ["gestao", "capital", "risco"],
+      resp: "<b>Money Management é Tudo</b><br>- Risco pequeno, ganho grande = fórmula do sucesso<br>- Nunca quer recuperar perdas trading (vai piorar)<br>- Tome breaks (mercado está sempre lá)<br>- Domine 1 ativo antes de múltiplos<br>- Trading com emoção = suicídio financeiro",
+    },
+    {
+      keys: ["bitcoin", "halving", "ciclo"],
+      resp: "<b>Ciclo de Halving do Bitcoin (4 Anos)</b><br>Histórico:<br>2012: $100 → $1000 (900%)<br>2016: $650 → $19000 (2900%)<br>2020: $10k → $69k (600%)<br>2024: ? Próximo halving = futura explosão<br>Padrão: +1000% em 18-24 meses pós-halving",
+    },
+    {
+      keys: ["eth", "ethereum", "atualiza"],
+      resp: "<b>Ethereum: Blockchain Programável</b><br>- Proof of Work → Proof of Stake (2022)<br>- Smart contracts rodam aplicações descentralizadas<br>- DeFi constrói em ETH (valor enorme)<br>- Staking: 5-8% ao ano passivamente<br>- Segundo maior cripto, fluxo de institucional crescente",
+    },
+    {
+      keys: ["defi", "rendimento", "juros"],
+      resp: "<b>DeFi: Finanças Descentralizadas</b><br>- Empréstimos entre P2P (8-15% ao ano)<br>- Pools de liquidez (yield farming)<br>- Staking (passiva 4-20% ao ano)<br>- Risco: contratos com bugs, impermanent loss<br>- Comece pequeno, aprenda segurança",
+    },
+    {
+      keys: ["nft", "mercado", "blockchain"],
+      resp: "<b>NFT: Ouro Digital? Ou Bolha?</b><br>- Propriedade única (certificado blockchain)<br>- Arte, colecionáveis, gaming items<br>- Mercado especulativo (boom/bust extremo)<br>- Maioria não tem valor fundamental<br>- Foque em projetos com utilidade real",
+    },
+    {
+      keys: ["imposto", "lucro", "ir"],
+      resp: "<b>Imposto sobre Ganhos (Brasil)</b><br>Imposto de Renda:<br>- Pessoa física: 15% sobre ganhos (até R$20k/mês isento)<br>- Day trading: 20% (tabela progressiva)<br>- Criptos: 15% em geral<br>Mantenha registros. Contabile tudo.",
+    },
+    {
+      keys: ["alavancagem", "margem", "risco"],
+      resp: "<b>Alavancagem: Faca de Dois Gumes</b><br>2x: Dobra ganho E dobra perda<br>5x: 5x ganho, 5x perda (liquidação fácil)<br>100x: Cassino puro (95% perdem tudo)<br><b>Regra:</b> Iniciante = sem alavancagem<br>Experiente = máximo 2-3x",
+    },
+  ],
+
+  init() {
+    console.log("[v0] AI Module initialized with 40+ knowledge base")
+  },
+
+  send() {
+    const input = document.getElementById("chat-input")
+    const msg = input.value.trim().toLowerCase()
+    if (!msg) return
+
+    const feed = document.getElementById("chat-feed")
+    const userMsg = document.createElement("div")
+    userMsg.className = "msg user"
+    userMsg.innerHTML = msg
+    feed.appendChild(userMsg)
+
+    let response = "Desculpe, não entendi. Tente outro termo ou clique em 'Perguntas que respondo' para ver opções."
+    for (const item of AI.knowledge) {
+      for (const key of item.keys) {
+        if (msg.includes(key)) {
+          response = item.resp
+          break
+        }
+      }
+      if (
+        response !== "Desculpe, não entendi. Tente outro termo ou clique em 'Perguntas que respondo' para ver opções."
+      )
+        break
+    }
+
+    setTimeout(() => {
+      const botMsg = document.createElement("div")
+      botMsg.className = "msg bot"
+      botMsg.innerHTML = response
+      feed.appendChild(botMsg)
+      feed.scrollTop = feed.scrollHeight
+    }, 300)
+
+    input.value = ""
+  },
+
+  showFAQ() {
+    document.getElementById("modal-faq").classList.remove("hidden")
+    const list = document.getElementById("faq-list")
+    list.innerHTML = AI.knowledge
+      .map(
+        (item, i) =>
+          `<div class="faq-item"><b>P${i + 1}: ${item.keys.join(", ")}</b><p>${item.resp.replace(/<br>/g, "\n").replace(/<[^>]*>/g, "")}</p></div>`,
+      )
+      .join("")
+  },
+}
+
+// --- NEWS MODULE (ENHANCED) ---
+const News = {
+  init() {
+    News.render(Store.news)
+  },
+
+  filter(cat) {
+    document.querySelectorAll(".btn-filter").forEach((b) => b.classList.remove("active"))
+    if (event.target) event.target.classList.add("active")
+
+    if (cat === "all") News.render(Store.news)
+    else News.render(Store.news.filter((n) => n.category === cat))
+  },
+
+  render(list) {
+    document.getElementById("news-container").innerHTML = list
+      .map(
+        (n) => `
+            <div class="card" onclick="News.open(${n.id})" style="cursor:pointer;">
+                <span class="badge" style="font-size:0.65rem; display:inline-block; padding:4px 8px; background:var(--brand-primary); color:#000; border-radius:4px; margin-bottom:8px;">${n.category}</span>
+                <h4 style="margin:10px 0; font-size:0.95rem; line-height:1.4;">${n.title}</h4>
+                <p class="text-muted" style="font-size:0.85rem; margin:8px 0;">${n.summary}</p>
+                <div style="margin-top:10px; font-size:0.75rem; color:var(--text-muted);">
+                    <i class="fas fa-tag"></i> ${n.ticker} • <i class="fas fa-clock"></i> ${n.timestamp}
+                </div>
+            </div>
+        `,
+      )
+      .join("")
+  },
+
+  open(id) {
+    const n = Store.news.find((x) => x.id === id)
+    if (!n) return
+    document.getElementById("n-cat").innerText = n.category
+    document.getElementById("n-title").innerText = n.title
+    document.getElementById("n-body").innerHTML = `
+            <p style="font-size:0.9rem; line-height:1.6; color:#fff;">${n.body}</p>
+            <div style="margin-top:15px; padding-top:15px; border-top:1px solid var(--border);">
+                <small style="color:var(--text-muted);">
+                    <i class="fas fa-quote-left"></i> Fonte: ${n.source} • ${n.timestamp}
+                </small>
+            </div>
+        `
+    document.getElementById("modal-news").classList.remove("hidden")
+  },
+}
+
+// --- UTILITIES ---
+const Format = {
+  currency: (val) => val.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }),
+}
+
+const Toast = {
+  show(msg, type = "info") {
+    const t = document.createElement("div")
+    t.style.background = "#1a202c"
+    t.style.borderLeft = `4px solid ${type === "success" ? "#00e396" : type === "error" ? "#ff0055" : "#00f2ff"}`
+    t.style.padding = "15px 20px"
+    t.style.borderRadius = "8px"
+    t.style.marginTop = "10px"
+    t.style.boxShadow = "0 5px 15px rgba(0,0,0,0.5)"
+    t.style.color = "#fff"
+    t.innerHTML = msg
+
+    const c = document.getElementById("toast-container")
+    c.style.position = "fixed"
+    c.style.bottom = "20px"
+    c.style.right = "20px"
+    c.style.zIndex = "9999"
+    c.appendChild(t)
+    setTimeout(() => t.remove(), 4000)
+  },
+}
+
+const Background = {
+  init() {
+    const c = document.getElementById("bg-canvas")
+    if (!c) return
+    const ctx = c.getContext("2d")
+    let w,
+      h,
+      particles = []
+
+    const resize = () => {
+      w = c.width = window.innerWidth
+      h = c.height = window.innerHeight
+    }
+
+    window.onresize = resize
+    resize()
+
+    for (let i = 0; i < 50; i++) {
+      particles.push({
+        x: Math.random() * w,
+        y: Math.random() * h,
+        vx: (Math.random() - 0.5) * 0.3,
+        vy: Math.random() * -0.5 - 0.2,
+        size: Math.random() * 2 + 1,
+        opacity: Math.random() * 0.5 + 0.1,
+      })
+    }
+
+    function anim() {
+      ctx.clearRect(0, 0, w, h)
+
+      particles.forEach((p) => {
+        p.y -= p.vy
+        p.x += p.vx
+        p.opacity -= 0.003
+
+        if (p.y < -10 || p.opacity < 0) {
+          p.y = h + 10
+          p.x = Math.random() * w
+          p.opacity = Math.random() * 0.5 + 0.1
+        }
+
+        ctx.fillStyle = `rgba(0, 242, 255, ${p.opacity})`
+        ctx.beginPath()
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2)
+        ctx.fill()
+      })
+
+      requestAnimationFrame(anim)
+    }
+
+    anim()
+  },
+}
+
+// --- EMBEDDED MOCK DATA (Fallback) ---
+const AppData = {
+  mockAssets: [
+    {
+      id: "btc",
+      ticker: "BTC",
+      name: "Bitcoin",
+      category: "Cripto",
+      basePrice: 50000,
+      volatility: 0.05,
+      currentPrice: 50000,
+      change24h: 0,
+    },
+    {
+      id: "eth",
+      ticker: "ETH",
+      name: "Ethereum",
+      category: "Cripto",
+      basePrice: 3000,
+      volatility: 0.06,
+      currentPrice: 3000,
+      change24h: 0,
+    },
+    {
+      id: "xrp",
+      ticker: "XRP",
+      name: "Ripple",
+      category: "Cripto",
+      basePrice: 2.5,
+      volatility: 0.08,
+      currentPrice: 2.5,
+      change24h: 0,
+    },
+    {
+      id: "ada",
+      ticker: "ADA",
+      name: "Cardano",
+      category: "Cripto",
+      basePrice: 1.2,
+      volatility: 0.07,
+      currentPrice: 1.2,
+      change24h: 0,
+    },
+    {
+      id: "sol",
+      ticker: "SOL",
+      name: "Solana",
+      category: "Cripto",
+      basePrice: 200,
+      volatility: 0.09,
+      currentPrice: 200,
+      change24h: 0,
+    },
+    {
+      id: "aapl",
+      ticker: "AAPL",
+      name: "Apple",
+      category: "Ações",
+      basePrice: 180,
+      volatility: 0.03,
+      currentPrice: 180,
+      change24h: 0,
+    },
+    {
+      id: "googl",
+      ticker: "GOOGL",
+      name: "Google",
+      category: "Ações",
+      basePrice: 140,
+      volatility: 0.03,
+      currentPrice: 140,
+      change24h: 0,
+    },
+    {
+      id: "msft",
+      ticker: "MSFT",
+      name: "Microsoft",
+      category: "Ações",
+      basePrice: 380,
+      volatility: 0.03,
+      currentPrice: 380,
+      change24h: 0,
+    },
+    {
+      id: "tsla",
+      ticker: "TSLA",
+      name: "Tesla",
+      category: "Ações",
+      basePrice: 250,
+      volatility: 0.05,
+      currentPrice: 250,
+      change24h: 0,
+    },
+    {
+      id: "amzn",
+      ticker: "AMZN",
+      name: "Amazon",
+      category: "Ações",
+      basePrice: 180,
+      volatility: 0.04,
+      currentPrice: 180,
+      change24h: 0,
+    },
+    {
+      id: "nvda",
+      ticker: "NVDA",
+      name: "NVIDIA",
+      category: "Ações",
+      basePrice: 900,
+      volatility: 0.06,
+      currentPrice: 900,
+      change24h: 0,
+    },
+    {
+      id: "meta",
+      ticker: "META",
+      name: "Meta (Facebook)",
+      category: "Ações",
+      basePrice: 500,
+      volatility: 0.05,
+      currentPrice: 500,
+      change24h: 0,
+    },
+    {
+      id: "amcx",
+      ticker: "AMD",
+      name: "AMD",
+      category: "Ações",
+      basePrice: 170,
+      volatility: 0.05,
+      currentPrice: 170,
+      change24h: 0,
+    },
+    {
+      id: "nflx",
+      ticker: "NFLX",
+      name: "Netflix",
+      category: "Ações",
+      basePrice: 450,
+      volatility: 0.04,
+      currentPrice: 450,
+      change24h: 0,
+    },
+    {
+      id: "dis",
+      ticker: "DIS",
+      name: "Disney",
+      category: "Ações",
+      basePrice: 95,
+      volatility: 0.04,
+      currentPrice: 95,
+      change24h: 0,
+    },
+    {
+      id: "wmt",
+      ticker: "WMT",
+      name: "Walmart",
+      category: "Ações",
+      basePrice: 85,
+      volatility: 0.02,
+      currentPrice: 85,
+      change24h: 0,
+    },
+    {
+      id: "jnj",
+      ticker: "JNJ",
+      name: "Johnson & Johnson",
+      category: "Ações",
+      basePrice: 160,
+      volatility: 0.02,
+      currentPrice: 160,
+      change24h: 0,
+    },
+    {
+      id: "pg",
+      ticker: "PG",
+      name: "Procter & Gamble",
+      category: "Ações",
+      basePrice: 160,
+      volatility: 0.02,
+      currentPrice: 160,
+      change24h: 0,
+    },
+    {
+      id: "ko",
+      ticker: "KO",
+      name: "Coca-Cola",
+      category: "Ações",
+      basePrice: 60,
+      volatility: 0.02,
+      currentPrice: 60,
+      change24h: 0,
+    },
+    {
+      id: "mcd",
+      ticker: "MCD",
+      name: "McDonald's",
+      category: "Ações",
+      basePrice: 290,
+      volatility: 0.02,
+      currentPrice: 290,
+      change24h: 0,
+    },
+    {
+      id: "wti",
+      ticker: "WTI",
+      name: "Petróleo Bruto",
+      category: "Commodities",
+      basePrice: 85,
+      volatility: 0.04,
+      currentPrice: 85,
+      change24h: 0,
+    },
+    {
+      id: "gold",
+      ticker: "GOLD",
+      name: "Ouro",
+      category: "Commodities",
+      basePrice: 2000,
+      volatility: 0.03,
+      currentPrice: 2000,
+      change24h: 0,
+    },
+    {
+      id: "silver",
+      ticker: "SILVER",
+      name: "Prata",
+      category: "Commodities",
+      basePrice: 25,
+      volatility: 0.04,
+      currentPrice: 25,
+      change24h: 0,
+    },
+    {
+      id: "copper",
+      ticker: "COPPER",
+      name: "Cobre",
+      category: "Commodities",
+      basePrice: 4,
+      volatility: 0.04,
+      currentPrice: 4,
+      change24h: 0,
+    },
+    {
+      id: "natgas",
+      ticker: "NATGAS",
+      name: "Gás Natural",
+      category: "Commodities",
+      basePrice: 3,
+      volatility: 0.08,
+      currentPrice: 3,
+      change24h: 0,
+    },
+    {
+      id: "wheat",
+      ticker: "WHEAT",
+      name: "Trigo",
+      category: "Commodities",
+      basePrice: 8,
+      volatility: 0.05,
+      currentPrice: 8,
+      change24h: 0,
+    },
+    {
+      id: "corn",
+      ticker: "CORN",
+      name: "Milho",
+      category: "Commodities",
+      basePrice: 6,
+      volatility: 0.05,
+      currentPrice: 6,
+      change24h: 0,
+    },
+    {
+      id: "soy",
+      ticker: "SOY",
+      name: "Soja",
+      category: "Commodities",
+      basePrice: 13,
+      volatility: 0.04,
+      currentPrice: 13,
+      change24h: 0,
+    },
+    {
+      id: "coffee",
+      ticker: "COFFEE",
+      name: "Café",
+      category: "Commodities",
+      basePrice: 200,
+      volatility: 0.06,
+      currentPrice: 200,
+      change24h: 0,
+    },
+    {
+      id: "sugar",
+      ticker: "SUGAR",
+      name: "Açúcar",
+      category: "Commodities",
+      basePrice: 20,
+      volatility: 0.05,
+      currentPrice: 20,
+      change24h: 0,
+    },
+    {
+      id: "dxy",
+      ticker: "DXY",
+      name: "Dólar Índice",
+      category: "Forex",
+      basePrice: 105,
+      volatility: 0.02,
+      currentPrice: 105,
+      change24h: 0,
+    },
+    {
+      id: "eurusd",
+      ticker: "EURUSD",
+      name: "Euro/Dólar",
+      category: "Forex",
+      basePrice: 1.1,
+      volatility: 0.02,
+      currentPrice: 1.1,
+      change24h: 0,
+    },
+  ],
+
+  mockNews: [
+    {
+      id: 1,
+      title: "Bitcoin toca novo recorde acima de $60k",
+      summary: "Maior criptomoeda ultrapassa patamar histórico...",
+      body: "Bitcoin alcançou hoje novo recorde de $62.500, impulsionado por aprovação de ETF e adoção institucional crescente. Analistas veem suporte em $60k. Volume acima do normal confirma força do movimento. Tendência de longo prazo permanece bullish.",
+      category: "Cripto",
+      ticker: "BTC",
+      timestamp: "10:30 hoje",
+      source: "CoinTelegraph",
+      region: "Global",
+    },
+    {
+      id: 2,
+      title: "Ethereum 2.0 melhora segurança e eficiência",
+      summary: "Atualização reduz consumo de energia em 99%...",
+      body: "A transição para Proof-of-Stake foi bem-sucedida. Ethereum agora consome 99% menos energia, atraindo investidores ESG. Smart contracts ficam mais baratos. Comunidade celebra a mudança histórica. ETH pode valorizar com adoção institucional.",
+      category: "Cripto",
+      ticker: "ETH",
+      timestamp: "09:15 hoje",
+      source: "TheBlock",
+      region: "Global",
+    },
+    {
+      id: 3,
+      title: "Apple anuncia novo iPhone 15 com IA integrada",
+      summary: "Telefone traz processamento local de linguagem natural...",
+      body: "Apple revelou iPhone 15 com chip A17 Pro e recursos de IA avançados. Sem necessidade de conectar à nuvem para análises básicas. Bateria dura 30% mais. Lançamento em setembro. Ação AAPL subiu 2%.",
+      category: "Ações",
+      ticker: "AAPL",
+      timestamp: "08:00 hoje",
+      source: "Bloomberg",
+      region: "EUA",
+    },
+    {
+      id: 4,
+      title: "Tesla ultrapassa meta de 2 milhões de carros",
+      summary: "Fabricante de EVs bate recorde anual de produção...",
+      body: "Tesla produziu mais de 2 milhões de veículos em 2024, consolidando liderança em EVs. Preços caem para estimular demanda. Elon Musk reafirma meta de 3 milhões em 2025. Investidores reagem positivamente.",
+      category: "Ações",
+      ticker: "TSLA",
+      timestamp: "14:45 hoje",
+      source: "Reuters",
+      region: "EUA",
+    },
+    {
+      id: 5,
+      title: "Petróleo sobe com tensões geopolíticas",
+      summary: "WTI ultrapassa $90 por barril por primeira vez...",
+      body: "Tensões no Oriente Médio causam rally no petróleo. WTI em $92. Oferta apertada por redução voluntária de produção. Dólar fraco também apoia. Analistas veem novo teto em $100.",
+      category: "Commodities",
+      ticker: "WTI",
+      timestamp: "16:20 hoje",
+      source: "CNBC",
+      region: "Global",
+    },
+    {
+      id: 6,
+      title: "Ouro bate recorde histórico acima de $2.500",
+      summary: "Aumento de demanda por segurança em portfólio...",
+      body: "Ouro fechou em $2.520, novo máximo histórico. Demanda por ativo refúgio cresce com incerteza global. Bancos centrais continuam comprando. Tendência de alta pode levar a $3k.",
+      category: "Commodities",
+      ticker: "GOLD",
+      timestamp: "13:10 hoje",
+      source: "MarketWatch",
+      region: "Global",
+    },
+    {
+      id: 7,
+      title: "Microsoft investe $100 bilhões em IA e cloud",
+      summary: "Gigante do software aposta pesado em computação...",
+      body: "Microsoft anunciou investimento de $100 bi em infraestrutura de IA nos próximos 10 anos. Copilot integrado em todos os produtos. Parceria com OpenAI fortalecida. MSFT em alta.",
+      category: "Ações",
+      ticker: "MSFT",
+      timestamp: "11:30 hoje",
+      source: "TechCrunch",
+      region: "EUA",
+    },
+    {
+      id: 8,
+      title: "Google quebra recorde de buscas e ads",
+      summary: "Receita de publicidade cresce 25% year-over-year...",
+      body: "Google reportou crescimento de 25% em receita de ads para Q4. Buscas por IA generativa dispararam. YouTube Ads segue strong. GOOGL valuation justificado.",
+      category: "Ações",
+      ticker: "GOOGL",
+      timestamp: "12:00 hoje",
+      source: "Seeking Alpha",
+      region: "EUA",
+    },
+    {
+      id: 9,
+      title: "Amazon abre novo data center em São Paulo",
+      summary: "Expansão na América Latina acelera transformação digital...",
+      body: "AWS (Amazon Web Services) anunciou novo data center em SP para melhorar latência. Investimento de $500 milhões. Demanda por cloud cresce na região. AMZN promove inclusão digital.",
+      category: "Ações",
+      ticker: "AMZN",
+      timestamp: "15:00 hoje",
+      source: "Valor",
+      region: "Brasil",
+    },
+    {
+      id: 10,
+      title: "Meta testa óculos AR de nova geração",
+      summary: "Dispositivo promete revolucionar metaverso e realidade aumentada...",
+      body: "Meta lançou protótipos de óculos AR sem fio com resolução 4K. Visão de Zuckerberg do metaverso ganha tração. Parceria com OpenAI fortalecida. Ação META em alta.",
+      category: "Ações",
+      ticker: "META",
+      timestamp: "10:15 hoje",
+      source: "The Verge",
+      region: "EUA",
+    },
+  ],
+}
+
+// Boot
+const OldInit = App.init
+App.init = async () => {
+  await OldInit.call(App)
+
+  // Add chart type buttons to Trade Pro header
+  const header = document.querySelector(".chart-header")
+  if (header) {
+    const typeDiv = document.createElement("div")
+    typeDiv.style.display = "flex"
+    typeDiv.style.gap = "5px"
+    typeDiv.innerHTML = `
+      <button class="tf-btn active" onclick="TradePro.setChartType('candlestick')">Vela</button>
+      <button class="tf-btn" onclick="TradePro.setChartType('line')">Linha</button>
+      <button class="tf-btn" onclick="TradePro.setChartType('area')">Área</button>
+    `
+    header.insertBefore(typeDiv, header.querySelector(".timeframes"))
+  }
+}
+window.onload = App.init
+
+setInterval(() => {
+  if (Store.charts.proSeries && document.getElementById("view-trade-pro").classList.contains("active")) {
+    TradePro.tick()
+  }
+  // Market update already happens
+}, 10000)
