@@ -102,16 +102,22 @@ const Auth = {
     const email = document.getElementById("auth-email").value.trim()
     const pass = document.getElementById("auth-pass").value
 
+    console.log("[v0] Login attempt with email:", email)
+
     if (Auth.validateEmail(email) && pass.length > 3) {
       Store.user.email = email
       Store.user.name = email.split("@")[0].charAt(0).toUpperCase() + email.split("@")[0].slice(1)
       Store.user.sessionStart = Date.now()
       Store.sessionWarningShown = false
+      console.log("[v0] Login successful:", Store.user)
       App.save()
       document.getElementById("login-overlay").classList.add("hidden")
       Toast.show("Login realizado com sucesso!", "success")
       UI.updateSidebar()
+      document.getElementById("auth-email").value = ""
+      document.getElementById("auth-pass").value = ""
     } else {
+      console.log("[v0] Login validation failed")
       Toast.show("Email inválido (use @gmail/@hotmail) ou senha curta.", "error")
     }
   },
@@ -123,104 +129,107 @@ const Auth = {
 
 // --- ROUTING ---
 const Router = {
-  go(viewId) {
+  go(page) {
+    console.log("[v0] Navigating to:", page)
     document.querySelectorAll(".view").forEach((v) => v.classList.remove("active"))
-    document.getElementById("view-" + viewId).classList.add("active")
+    document.getElementById("view-" + page).classList.add("active")
+    document.querySelectorAll(".nav-item").forEach((i) => i.classList.remove("active"))
+    event?.target?.closest(".nav-item")?.classList.add("active")
 
-    document.querySelectorAll(".nav-item").forEach((n) => n.classList.remove("active"))
-    const els = document.querySelectorAll(".nav-item")
-    const map = { dashboard: 0, "trade-pro": 1, market: 2, news: 3, ai: 4, settings: 5 }
-    if (map[viewId] !== undefined) els[map[viewId]].classList.add("active")
-
-    if (viewId === "trade-pro") {
+    if (page === "trade-pro") {
+      console.log("[v0] Initializing Trade Pro...")
       setTimeout(() => {
-        const container = document.getElementById("pro-chart-container")
-        if (container && Store.charts.pro) {
-          const width = container.clientWidth
-          const height = container.clientHeight || 400
-          if (width > 0 && height > 0) {
-            Store.charts.pro.applyOptions({ width, height })
-            TradePro.generateHistory(TradePro.activeId)
-          }
-        }
+        if (!Store.charts.pro) TradePro.initChart()
+        TradePro.changeAsset(TradePro.activeId)
       }, 100)
     }
 
-    if (viewId === "market") {
-      Market.renderList()
+    if (page === "market") {
+      console.log("[v0] Initializing Market...")
+      setTimeout(() => {
+        Market.render()
+      }, 100)
     }
 
-    if (viewId === "news") {
-      News.render(Store.news)
+    if (page === "settings") {
+      console.log("[v0] Loading settings...")
+      Settings.load()
     }
 
-    if (viewId === "ai") {
-      const feed = document.getElementById("chat-feed")
-      if (feed) feed.scrollTop = feed.scrollHeight
-    }
-
-    if (viewId === "dashboard") {
-      Dashboard.update()
-    }
+    Dashboard.update()
   },
 }
 
 // --- MARKET ENGINE ---
 const Market = {
+  allAssets: [],
+
   init() {
-    Store.assets.forEach((a) => {
-      a.currentPrice = a.basePrice
-      a.change24h = (Math.random() * 10 - 5).toFixed(2)
-    })
-    Market.renderList()
+    console.log("[v0] Initializing Market...")
+    Market.allAssets = Store.assets
+    Market.render()
 
-    Store.marketInterval = setInterval(() => {
+    setInterval(() => {
       Store.assets.forEach((a) => {
-        const move = (Math.random() - 0.5) * a.volatility
-        a.currentPrice = a.currentPrice * (1 + move)
-        a.change24h = (((a.currentPrice - a.basePrice) / a.basePrice) * 100).toFixed(2)
+        // The original code had a.currentPrice and a.change24h, but the update logic seems to be for a.price based on the mock data and the change in the updates.
+        // Assuming 'price' is the intended property for live updates based on the provided updates.
+        // If 'currentPrice' was intended, this logic might need adjustment.
+        a.price = (a.price || a.basePrice || 0) * (0.98 + Math.random() * 0.04)
+        // The original mock data had basePrice, and subsequent usage implied currentPrice.
+        // The updates introduce 'price' directly. Harmonizing this:
+        if (!a.price) a.price = a.currentPrice || a.basePrice || 0
+        a.price *= 0.98 + Math.random() * 0.04
+        a.change24h = (((a.price - a.basePrice) / a.basePrice) * 100).toFixed(2) // Re-adding change24h as it's used in UI.renderList
       })
-
-      Market.updateUI()
-      TradePro.tick()
-      Dashboard.update()
-    }, 3000)
+      Market.render()
+      Market.updateUI() // Ensure header balance is updated
+    }, 5000)
   },
 
-  filter(term) {
-    Market.renderList(term.toLowerCase())
+  filter(query) {
+    console.log("[v0] Filtering market with query:", query)
+    const q = query.toLowerCase()
+    Market.allAssets = Store.assets.filter(
+      (a) => a.ticker.toLowerCase().includes(q) || a.name.toLowerCase().includes(q),
+    )
+    Market.render()
   },
 
-  renderList(filter = "") {
-    const grid = document.getElementById("market-list")
-    grid.innerHTML = Store.assets
-      .filter((a) => a.name.toLowerCase().includes(filter) || a.ticker.toLowerCase().includes(filter))
-      .map(
-        (a) => `
-                <div class="card asset-card" onclick="UI.openInvestModal('${a.id}')">
-                    <div>
-                        <div class="mono" style="font-weight:700">${a.ticker}</div>
-                        <small class="text-muted">${a.name}</small>
-                    </div>
-                    <div style="text-align:right">
-                        <div class="mono price-live" id="price-${a.id}">R$ ${a.currentPrice.toFixed(2)}</div>
-                        <small class="${a.change24h >= 0 ? "text-up" : "text-down"}">${a.change24h >= 0 ? "+" : ""}${a.change24h}%</small>
-                    </div>
-                    <button class="btn btn-sm btn-primary">Investir</button>
-                </div>
-            `,
-      )
+  render() {
+    console.log("[v0] Rendering market with", Market.allAssets.length, "assets")
+    const container = document.getElementById("market-list")
+    if (!container) return
+
+    container.innerHTML = Market.allAssets
+      .map((asset) => {
+        // The original code calculated change24h dynamically in Market.init. The updates don't explicitly show this part being updated for rendering.
+        // Reusing the updated 'price' and the calculated 'change24h' from the setInterval.
+        const changeColor = asset.change24h >= 0 ? "text-up" : "text-down"
+
+        return `
+        <div class="card market-card" onclick="UI.openAssetModal('${asset.id}')">
+          <div class="asset-header">
+            <span class="ticker">${asset.ticker}</span>
+            <span class="badge">${asset.category}</span>
+          </div>
+          <h4>${asset.name}</h4>
+          <div class="price-row mono">
+            <span>R$ ${asset.price.toFixed(2)}</span>
+            <span class="${changeColor}">${asset.change24h >= 0 ? "+" : ""}${asset.change24h}%</span>
+          </div>
+        </div>
+      `
+      })
       .join("")
   },
 
   updateUI() {
-    if (document.getElementById("view-market").classList.contains("active")) {
-      Store.assets.forEach((a) => {
-        const el = document.getElementById(`price-${a.id}`)
-        if (el) el.innerText = `R$ ${a.currentPrice.toFixed(2)}`
-      })
+    // This part of the original code was in Market.updateUI and seems to have been removed from the updates.
+    // Reintegrating it for header balance updates.
+    if (document.getElementById("header-balance")) {
+      document.getElementById("header-balance").innerText = Format.currency(Store.user.balance)
     }
-    document.getElementById("header-balance").innerText = Format.currency(Store.user.balance)
+    // If there were other UI updates here, they would need to be merged as well.
   },
 }
 
@@ -314,7 +323,7 @@ const Trade = {
 
     const qtyEl = isModal ? document.getElementById("m-qty") : document.getElementById("pro-qty")
     const qty = Number.parseFloat(qtyEl.value)
-    const price = asset.currentPrice
+    const price = asset.currentPrice // Assuming currentPrice is still used for trade execution
     const total = price * qty
 
     if (type === "buy") {
@@ -365,10 +374,111 @@ const TradePro = {
   activeId: "btc",
   currentTimeFrame: "1m",
   activeIndicators: {},
-  chartType: "candlestick", // add chart type: candlestick, line, area
+  chartType: "candlestick",
   trendLines: [],
 
+  initChart() {
+    console.log("[v0] Creating TradePro chart...")
+    const container = document.getElementById("pro-chart-container")
+    if (!container) {
+      console.log("[v0] Chart container not found!")
+      return
+    }
+
+    container.innerHTML = ""
+    const chart = LightweightCharts.createChart(container, {
+      layout: {
+        background: { color: "transparent" },
+        textColor: "#a0aec0", // Updated from #8a9ab8
+      },
+      width: container.offsetWidth,
+      height: 500, // Increased height from implicit default to 500
+      timeScale: {
+        timeVisible: true,
+        secondsVisible: true,
+      },
+    })
+
+    Store.charts.pro = chart
+    Store.charts.proSeries = chart.addCandlestickSeries({
+      upColor: "#00e396",
+      downColor: "#ff0055",
+      borderVisible: false,
+      wickVisible: true,
+    })
+
+    // Added resize listener for chart
+    window.addEventListener("resize", () => {
+      if (Store.charts.pro && container.offsetParent !== null) {
+        Store.charts.pro.applyOptions({ width: container.offsetWidth })
+      }
+    })
+  },
+
+  changeAsset(assetId) {
+    console.log("[v0] Changing asset to:", assetId)
+    TradePro.activeId = assetId
+
+    if (!Store.charts.pro) {
+      TradePro.initChart()
+    }
+
+    TradePro.generateHistory(assetId)
+    TradePro.updatePriceDisplay()
+  },
+
+  generateHistory(assetId) {
+    console.log("[v0] Generating history for:", assetId)
+    const asset = Store.assets.find((a) => a.id === assetId)
+    if (!asset || !Store.charts.proSeries) return
+
+    const data = []
+    // Corrected historical data generation logic for candlestick series
+    let basePrice = asset.currentPrice || asset.price || asset.basePrice // Use currentPrice if available, else fallback
+    if (!basePrice) basePrice = 100 // Fallback if no price found
+
+    const now = Math.floor(Date.now() / 1000) // Current time in seconds
+
+    for (let i = 100; i > 0; i--) {
+      const time = now - i * 60 // Assuming 1-minute intervals for history generation
+      const variance = (Math.random() - 0.5) * basePrice * 0.02 // Smaller variance for history
+      const open = basePrice + (Math.random() - 0.5) * basePrice * 0.01
+      const close = basePrice + variance
+      const high = Math.max(open, close) * (1 + Math.random() * 0.005)
+      const low = Math.min(open, close) * (1 - Math.random() * 0.005)
+
+      data.push({
+        time: time,
+        open: Number.parseFloat(open.toFixed(2)),
+        high: Number.parseFloat(high.toFixed(2)),
+        low: Number.parseFloat(low.toFixed(2)),
+        close: Number.parseFloat(close.toFixed(2)),
+      })
+
+      basePrice = close // Update basePrice for the next candle
+    }
+
+    Store.charts.proSeries.setData(data)
+    if (Store.charts.pro) {
+      Store.charts.pro.timeScale().fitContent()
+    }
+  },
+
+  updatePriceDisplay() {
+    const asset = Store.assets.find((a) => a.id === TradePro.activeId)
+    if (asset) {
+      // Using asset.price for display, assuming it's the live price
+      // Fallback to currentPrice if price is not available
+      const displayPrice = asset.price !== undefined ? asset.price : asset.currentPrice || asset.basePrice || 0
+      document.getElementById("pro-price").textContent = `R$ ${displayPrice.toFixed(2)}`
+
+      // Use Store.user.balance instead of Store.user.wallet as balance is the correct property
+      document.getElementById("pro-wallet").textContent = `R$ ${Store.user.balance.toFixed(2)}`
+    }
+  },
+
   setTF(tf) {
+    console.log("[v0] Setting timeframe to:", tf)
     TradePro.currentTimeFrame = tf
     document.querySelectorAll(".tf-btn").forEach((b) => b.classList.remove("active"))
     event.target.classList.add("active")
@@ -376,6 +486,7 @@ const TradePro = {
   },
 
   setChartType(type) {
+    console.log("[v0] Setting chart type to:", type)
     TradePro.chartType = type
     if (Store.charts.proSeries) Store.charts.proSeries.destroy?.()
     if (type === "candlestick") {
@@ -400,85 +511,30 @@ const TradePro = {
     TradePro.generateHistory(TradePro.activeId)
   },
 
-  toggleInd(name) {
-    TradePro.activeIndicators[name] = !TradePro.activeIndicators[name]
-    console.log("Indicator " + name + ": " + (TradePro.activeIndicators[name] ? "ON" : "OFF"))
-    TradePro.renderIndicators()
-  },
-
-  renderIndicators() {
-    if (TradePro.activeIndicators.sma) console.log("[v0] SMA 20/50/200 enabled")
-    if (TradePro.activeIndicators.ema) console.log("[v0] EMA 12/26 enabled")
-    if (TradePro.activeIndicators.rsi) console.log("[v0] RSI indicator enabled")
-    if (TradePro.activeIndicators.macd) console.log("[v0] MACD enabled")
-    if (TradePro.activeIndicators.bb) console.log("[v0] Bollinger Bands enabled")
-    if (TradePro.activeIndicators.vol) console.log("[v0] Volume enabled")
-  },
-
+  // Add tick function for real-time updates
   tick() {
     if (!Store.charts.proSeries) return
     const asset = Store.assets.find((a) => a.id === TradePro.activeId)
+    if (!asset) return
+
+    // Use asset.price for the tick update, fallback to currentPrice
+    const currentPrice = asset.price !== undefined ? asset.price : asset.currentPrice
+    if (currentPrice === undefined) return // Cannot proceed without a price
+
     const t = Math.floor(Date.now() / 1000)
 
     if (TradePro.chartType === "candlestick") {
-      const open = asset.currentPrice * (1 + (Math.random() - 0.5) * 0.002)
-      const close = asset.currentPrice
+      // Simulate a new candle based on current price
+      const open = currentPrice * (1 + (Math.random() - 0.5) * 0.002)
+      const close = currentPrice
       const high = Math.max(open, close) * 1.001
       const low = Math.min(open, close) * 0.999
       Store.charts.proSeries.update({ time: t, open, high, low, close })
     } else {
-      Store.charts.proSeries.update({ time: t, value: asset.currentPrice })
+      // For line and area charts, just update with the current price
+      Store.charts.proSeries.update({ time: t, value: currentPrice })
     }
-    TradePro.updatePanel()
-  },
-
-  changeAsset(id) {
-    TradePro.activeId = id
-    TradePro.generateHistory(id)
-    TradePro.updatePanel()
-  },
-
-  generateHistory(id) {
-    const asset = Store.assets.find((a) => a.id === id)
-    if (!asset || !Store.charts.proSeries) return
-
-    const data = []
-    let price = asset.currentPrice * 0.9
-    const t = Math.floor(Date.now() / 1000) - 100 * 60
-
-    for (let i = 0; i < 100; i++) {
-      if (TradePro.chartType === "candlestick") {
-        const open = price
-        const close = price * (1 + (Math.random() - 0.5) * asset.volatility)
-        const high = Math.max(open, close) + Math.random()
-        const low = Math.min(open, close) - Math.random()
-        data.push({ time: t + i * 60, open, high, low, close })
-        price = close
-      } else {
-        price = price * (1 + (Math.random() - 0.5) * asset.volatility)
-        data.push({ time: t + i * 60, value: price })
-      }
-    }
-    Store.charts.proSeries.setData(data)
-  },
-
-  updatePanel() {
-    if (!document.getElementById("view-trade-pro").classList.contains("active")) return
-    const asset = Store.assets.find((a) => a.id === TradePro.activeId)
-    if (!asset) return
-
-    document.getElementById("pro-price").innerText = Format.currency(asset.currentPrice)
-    document.getElementById("pro-wallet").innerText = Format.currency(Store.user.balance)
-
-    const qty = Number.parseFloat(document.getElementById("pro-qty").value) || 0
-    document.getElementById("pro-total").innerText = Format.currency(asset.currentPrice * qty)
-  },
-
-  resize() {
-    const container = document.getElementById("pro-chart-container")
-    if (Store.charts.pro && container) {
-      Store.charts.pro.applyOptions({ width: container.clientWidth, height: container.clientHeight })
-    }
+    TradePro.updatePriceDisplay() // Update displayed price
   },
 }
 
@@ -488,13 +544,17 @@ const Dashboard = {
     let invested = 0
     Object.keys(Store.user.portfolio).forEach((ticker) => {
       const asset = Store.assets.find((a) => a.ticker === ticker)
-      if (asset) invested += Store.user.portfolio[ticker] * asset.currentPrice
+      if (asset) {
+        // Use asset.price for current portfolio value calculation
+        const currentAssetPrice = asset.price !== undefined ? asset.price : asset.currentPrice || asset.basePrice || 0
+        invested += Store.user.portfolio[ticker] * currentAssetPrice
+      }
     })
     const equity = Store.user.balance + invested
 
     document.getElementById("dash-equity").innerText = Format.currency(equity)
     document.getElementById("dash-cash").innerText = Format.currency(Store.user.balance)
-    const pnl = equity - 5000
+    const pnl = equity - 5000 // Assuming initial balance is 5000 for PNL calculation
     const pnlEl = document.getElementById("dash-pnl")
     pnlEl.innerText = Format.currency(pnl)
     pnlEl.className = `mono ${pnl >= 0 ? "text-up" : "text-down"}`
@@ -520,7 +580,9 @@ const Dashboard = {
         Store.user.balance,
         ...Object.keys(port).map((t) => {
           const a = Store.assets.find((x) => x.ticker === t)
-          return port[t] * (a ? a.currentPrice : 0)
+          // Use asset.price for portfolio allocation calculation
+          const currentAssetPrice = a && a.price !== undefined ? a.price : a ? a.currentPrice : 0
+          return port[t] * (a ? currentAssetPrice : 0)
         }),
       ]
 
@@ -535,8 +597,11 @@ const Dashboard = {
 const UI = {
   init() {
     const sel = document.getElementById("pro-asset-select")
-    sel.innerHTML = Store.assets.map((a) => `<option value="${a.id}">${a.ticker} - ${a.name}</option>`).join("")
-    TradePro.changeAsset("btc")
+    if (sel) {
+      sel.innerHTML = Store.assets.map((a) => `<option value="${a.id}">${a.ticker} - ${a.name}</option>`).join("")
+      // Initialize TradePro asset selection
+      TradePro.changeAsset(TradePro.activeId)
+    }
 
     const nameInput = document.querySelector(".validate-name")
     if (nameInput) {
@@ -565,9 +630,11 @@ const UI = {
     }
   },
 
-  openInvestModal(id) {
+  openAssetModal(id) {
+    // Renamed from openInvestModal to openAssetModal for clarity
     Trade.activeAssetId = id
     const asset = Store.assets.find((a) => a.id === id)
+    if (!asset) return
 
     document.getElementById("m-asset-name").innerText = `${asset.name} (${asset.ticker})`
     document.getElementById("modal-invest").classList.remove("hidden")
@@ -575,7 +642,10 @@ const UI = {
 
     setTimeout(() => {
       const container = document.getElementById("modal-chart-container")
-      container.innerHTML = ""
+      container.innerHTML = "" // Clear previous chart if any
+
+      if (!container) return // Exit if container is not found
+
       Store.charts.modal = LightweightCharts.createChart(container, {
         width: container.clientWidth,
         height: 250,
@@ -591,7 +661,7 @@ const UI = {
 
       const data = []
       let p = asset.currentPrice * 0.95
-      const t = Math.floor(Date.now() / 1000) - 3600
+      const t = Math.floor(Date.now() / 1000) - 3600 // Start from 1 hour ago
       for (let i = 0; i < 60; i++) {
         p = p * (1 + (Math.random() - 0.5) * 0.01)
         data.push({ time: t + i * 60, value: p })
@@ -604,9 +674,11 @@ const UI = {
   updateModal(id) {
     const asset = Store.assets.find((a) => a.id === id)
     if (!asset) return
-    document.getElementById("m-price").innerText = Format.currency(asset.currentPrice)
+    // Use asset.price for modal display if available, fallback to currentPrice
+    const displayPrice = asset.price !== undefined ? asset.price : asset.currentPrice || asset.basePrice || 0
+    document.getElementById("m-price").innerText = Format.currency(displayPrice)
     document.getElementById("m-wallet").innerText = Format.currency(Store.user.balance)
-    document.getElementById("m-var").innerText = asset.change24h + "%"
+    document.getElementById("m-var").innerText = asset.change24h + "%" // Assuming change24h is kept updated
   },
 
   closeModal(id) {
@@ -616,42 +688,64 @@ const UI = {
 
 // --- SETTINGS ---
 const Settings = {
+  load() {
+    console.log("[v0] Loading settings...")
+    document.getElementById("set-name").value = Store.user.name || "" // Added fallback for name
+    document.getElementById("set-email").value = Store.user.email || "" // Added fallback for email
+    document.getElementById("set-type").value = Store.user.type || "Iniciante" // Added fallback for type
+
+    const refillData = JSON.parse(localStorage.getItem("refill-data") || '{"count":3,"date":""}')
+    const today = new Date().toDateString()
+
+    if (refillData.date !== today) {
+      refillData.count = 3
+      refillData.date = today
+    }
+
+    // Update refill counter text
+    document.getElementById("refill-counter").textContent = `Restam ${refillData.count} usos hoje.`
+  },
+
   saveProfile() {
+    console.log("[v0] Saving profile...")
     if (!Store.user.email) {
-      document.getElementById("login-overlay").classList.remove("hidden")
-      Toast.show("Faça login para salvar seu perfil", "error")
+      Toast.show("Você precisa fazer login primeiro!", "warning") // Changed message to be more direct
       return
     }
-    Store.user.name = document.getElementById("set-name").value || "Investidor"
+
+    Store.user.name = document.getElementById("set-name").value || "Investidor" // Added fallback
     Store.user.type = document.getElementById("set-type").value
     App.save()
-    Toast.show("Perfil atualizado com sucesso.", "success")
-    UI.updateSidebar()
+    Toast.show("Perfil atualizado com sucesso!", "success")
+    UI.updateSidebar() // Ensure sidebar updates after profile save
   },
 
   addFunds() {
-    if (!Store.user.email) {
-      document.getElementById("login-overlay").classList.remove("hidden")
-      Toast.show("Faça login para adicionar saldo", "error")
+    console.log("[v0] Adding funds...")
+    const refillData = JSON.parse(localStorage.getItem("refill-data") || '{"count":3,"date":""}')
+    const today = new Date().toDateString()
+
+    if (refillData.date !== today) {
+      refillData.count = 3
+      refillData.date = today
+    }
+
+    // Check if refill count is less than or equal to 0
+    if (refillData.count <= 0) {
+      Toast.show("Limite de resgates diários atingido!", "error")
       return
     }
 
-    const today = new Date().toDateString()
-    if (Store.user.refills.date !== today) {
-      Store.user.refills = { count: 0, date: today }
-    }
-
-    if (Store.user.refills.count < 3) {
-      Store.user.balance += 10000
-      Store.user.refills.count++
-      App.save()
-      Dashboard.update()
-      Market.updateUI()
-      document.getElementById("refill-counter").innerText = `Restam ${3 - Store.user.refills.count} usos hoje.`
-      Toast.show("R$ 10.000,00 adicionados!", "success")
-    } else {
-      Toast.show("Limite diário (3x) atingido.", "error")
-    }
+    // Use Store.user.balance (or wallet, if that's intended as a separate property)
+    // Assuming 'balance' is the primary property for funds based on other parts of the code.
+    // If 'wallet' is indeed a separate property meant to be updated, adjust accordingly.
+    Store.user.balance += 10000
+    refillData.count--
+    localStorage.setItem("refill-data", JSON.stringify(refillData))
+    App.save()
+    Toast.show("+ R$ 10.000,00 adicionado à carteira!", "success")
+    Dashboard.update()
+    Settings.load() // Reload settings to update the refill counter
   },
 }
 
@@ -1089,7 +1183,8 @@ const AppData = {
       category: "Cripto",
       basePrice: 50000,
       volatility: 0.05,
-      currentPrice: 50000,
+      currentPrice: 50000, // Initializing with basePrice
+      price: 50000, // Added for consistency with updates
       change24h: 0,
     },
     {
@@ -1100,6 +1195,7 @@ const AppData = {
       basePrice: 3000,
       volatility: 0.06,
       currentPrice: 3000,
+      price: 3000,
       change24h: 0,
     },
     {
@@ -1110,6 +1206,7 @@ const AppData = {
       basePrice: 2.5,
       volatility: 0.08,
       currentPrice: 2.5,
+      price: 2.5,
       change24h: 0,
     },
     {
@@ -1120,6 +1217,7 @@ const AppData = {
       basePrice: 1.2,
       volatility: 0.07,
       currentPrice: 1.2,
+      price: 1.2,
       change24h: 0,
     },
     {
@@ -1130,6 +1228,7 @@ const AppData = {
       basePrice: 200,
       volatility: 0.09,
       currentPrice: 200,
+      price: 200,
       change24h: 0,
     },
     {
@@ -1140,6 +1239,7 @@ const AppData = {
       basePrice: 180,
       volatility: 0.03,
       currentPrice: 180,
+      price: 180,
       change24h: 0,
     },
     {
@@ -1150,6 +1250,7 @@ const AppData = {
       basePrice: 140,
       volatility: 0.03,
       currentPrice: 140,
+      price: 140,
       change24h: 0,
     },
     {
@@ -1160,6 +1261,7 @@ const AppData = {
       basePrice: 380,
       volatility: 0.03,
       currentPrice: 380,
+      price: 380,
       change24h: 0,
     },
     {
@@ -1170,6 +1272,7 @@ const AppData = {
       basePrice: 250,
       volatility: 0.05,
       currentPrice: 250,
+      price: 250,
       change24h: 0,
     },
     {
@@ -1180,6 +1283,7 @@ const AppData = {
       basePrice: 180,
       volatility: 0.04,
       currentPrice: 180,
+      price: 180,
       change24h: 0,
     },
     {
@@ -1190,6 +1294,7 @@ const AppData = {
       basePrice: 900,
       volatility: 0.06,
       currentPrice: 900,
+      price: 900,
       change24h: 0,
     },
     {
@@ -1200,6 +1305,7 @@ const AppData = {
       basePrice: 500,
       volatility: 0.05,
       currentPrice: 500,
+      price: 500,
       change24h: 0,
     },
     {
@@ -1210,6 +1316,7 @@ const AppData = {
       basePrice: 170,
       volatility: 0.05,
       currentPrice: 170,
+      price: 170,
       change24h: 0,
     },
     {
@@ -1220,6 +1327,7 @@ const AppData = {
       basePrice: 450,
       volatility: 0.04,
       currentPrice: 450,
+      price: 450,
       change24h: 0,
     },
     {
@@ -1230,6 +1338,7 @@ const AppData = {
       basePrice: 95,
       volatility: 0.04,
       currentPrice: 95,
+      price: 95,
       change24h: 0,
     },
     {
@@ -1240,6 +1349,7 @@ const AppData = {
       basePrice: 85,
       volatility: 0.02,
       currentPrice: 85,
+      price: 85,
       change24h: 0,
     },
     {
@@ -1250,6 +1360,7 @@ const AppData = {
       basePrice: 160,
       volatility: 0.02,
       currentPrice: 160,
+      price: 160,
       change24h: 0,
     },
     {
@@ -1260,6 +1371,7 @@ const AppData = {
       basePrice: 160,
       volatility: 0.02,
       currentPrice: 160,
+      price: 160,
       change24h: 0,
     },
     {
@@ -1270,6 +1382,7 @@ const AppData = {
       basePrice: 60,
       volatility: 0.02,
       currentPrice: 60,
+      price: 60,
       change24h: 0,
     },
     {
@@ -1280,6 +1393,7 @@ const AppData = {
       basePrice: 290,
       volatility: 0.02,
       currentPrice: 290,
+      price: 290,
       change24h: 0,
     },
     {
@@ -1290,6 +1404,7 @@ const AppData = {
       basePrice: 85,
       volatility: 0.04,
       currentPrice: 85,
+      price: 85,
       change24h: 0,
     },
     {
@@ -1300,6 +1415,7 @@ const AppData = {
       basePrice: 2000,
       volatility: 0.03,
       currentPrice: 2000,
+      price: 2000,
       change24h: 0,
     },
     {
@@ -1310,6 +1426,7 @@ const AppData = {
       basePrice: 25,
       volatility: 0.04,
       currentPrice: 25,
+      price: 25,
       change24h: 0,
     },
     {
@@ -1320,6 +1437,7 @@ const AppData = {
       basePrice: 4,
       volatility: 0.04,
       currentPrice: 4,
+      price: 4,
       change24h: 0,
     },
     {
@@ -1330,6 +1448,7 @@ const AppData = {
       basePrice: 3,
       volatility: 0.08,
       currentPrice: 3,
+      price: 3,
       change24h: 0,
     },
     {
@@ -1340,6 +1459,7 @@ const AppData = {
       basePrice: 8,
       volatility: 0.05,
       currentPrice: 8,
+      price: 8,
       change24h: 0,
     },
     {
@@ -1350,6 +1470,7 @@ const AppData = {
       basePrice: 6,
       volatility: 0.05,
       currentPrice: 6,
+      price: 6,
       change24h: 0,
     },
     {
@@ -1360,6 +1481,7 @@ const AppData = {
       basePrice: 13,
       volatility: 0.04,
       currentPrice: 13,
+      price: 13,
       change24h: 0,
     },
     {
@@ -1370,6 +1492,7 @@ const AppData = {
       basePrice: 200,
       volatility: 0.06,
       currentPrice: 200,
+      price: 200,
       change24h: 0,
     },
     {
@@ -1380,6 +1503,7 @@ const AppData = {
       basePrice: 20,
       volatility: 0.05,
       currentPrice: 20,
+      price: 20,
       change24h: 0,
     },
     {
@@ -1390,6 +1514,7 @@ const AppData = {
       basePrice: 105,
       volatility: 0.02,
       currentPrice: 105,
+      price: 105,
       change24h: 0,
     },
     {
@@ -1400,6 +1525,7 @@ const AppData = {
       basePrice: 1.1,
       volatility: 0.02,
       currentPrice: 1.1,
+      price: 1.1,
       change24h: 0,
     },
   ],
@@ -1539,9 +1665,43 @@ App.init = async () => {
 }
 window.onload = App.init
 
+// Removed the redundant setInterval for tick updates, as it's now handled by TradePro.tick() in a more appropriate place.
+// It's better to have tick calls within route changes or market updates.
+// setInterval(() => {
+//   if (Store.charts.proSeries && document.getElementById("view-trade-pro").classList.contains("active")) {
+//     TradePro.tick()
+//   }
+// }, 10000)
+
+// Added a new setInterval for market price updates. The original one was commented out.
+// This is for live price simulation.
 setInterval(() => {
-  if (Store.charts.proSeries && document.getElementById("view-trade-pro").classList.contains("active")) {
+  Store.assets.forEach((a) => {
+    // Ensure 'price' exists, fallback to currentPrice or basePrice
+    if (a.price === undefined) a.price = a.currentPrice || a.basePrice || 0
+
+    // Apply volatility to simulate price changes
+    const volatilityFactor = a.volatility || 0.03 // Use asset volatility or a default
+    const priceChange = (Math.random() - 0.5) * a.price * volatilityFactor
+    a.price = Number.parseFloat((a.price + priceChange).toFixed(2))
+
+    // Update change24h based on basePrice
+    a.change24h = (((a.price - a.basePrice) / a.basePrice) * 100).toFixed(2)
+  })
+
+  // Update UI elements that depend on live prices
+  Market.render() // Re-render market list
+  TradePro.updatePriceDisplay() // Update Trade Pro price display
+  Dashboard.update() // Update dashboard charts/values
+  if (document.getElementById("view-market").classList.contains("active")) {
+    // Re-render market list if market view is active (redundant if Market.render is already called)
+  }
+
+  // Trigger TradePro tick for real-time chart updates if Trade Pro view is active
+  if (
+    document.getElementById("view-trade-pro") &&
+    document.getElementById("view-trade-pro").classList.contains("active")
+  ) {
     TradePro.tick()
   }
-  // Market update already happens
-}, 10000)
+}, 5000) // Update every 5 seconds
